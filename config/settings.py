@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from decouple import config, Csv
 
@@ -6,6 +7,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=Csv())
+
+# On Vercel, always trust the deployment domain (avoids DisallowedHost / 400).
+if os.environ.get('VERCEL'):
+    ALLOWED_HOSTS += ['.vercel.app']
+    _vercel_url = os.environ.get('VERCEL_URL')
+    if _vercel_url:
+        ALLOWED_HOSTS.append(_vercel_url)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
