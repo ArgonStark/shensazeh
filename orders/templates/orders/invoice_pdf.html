@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>فاکتور #{{ invoice.number }}</title>
+  <style>
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+      font-weight: normal;
+    }
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+      font-weight: bold;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+      font-size: 12px;
+      color: #333;
+      direction: rtl;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .invoice-container {
+      max-width: 800px;
+      margin: 0 auto;
+      border: 2px solid #2563eb;
+      padding: 25px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+    }
+    .company-name {
+      font-size: 22px;
+      font-weight: bold;
+      color: #2563eb;
+    }
+    .company-desc {
+      font-size: 11px;
+      color: #666;
+    }
+    .invoice-title {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: left;
+    }
+    .invoice-meta {
+      text-align: left;
+      font-size: 11px;
+      margin-top: 5px;
+    }
+    .invoice-meta td { padding: 2px 8px; }
+    .customer-info {
+      background: #f8f9fa;
+      padding: 10px 15px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+    }
+    .customer-info span {
+      display: inline-block;
+      margin-left: 30px;
+    }
+    .section-title {
+      font-weight: bold;
+      color: #666;
+      font-size: 11px;
+      margin-bottom: 5px;
+    }
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+    table.items th {
+      background: #2563eb;
+      color: white;
+      padding: 8px 10px;
+      font-size: 11px;
+      text-align: center;
+    }
+    table.items td {
+      border: 1px solid #dee2e6;
+      padding: 7px 10px;
+      text-align: center;
+      font-size: 11px;
+    }
+    table.items tr:nth-child(even) { background: #f8f9fa; }
+    .totals {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 20px;
+    }
+    .totals table { width: 280px; }
+    .totals td { padding: 4px 10px; font-size: 12px; }
+    .totals .grand-total {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2563eb;
+      border-top: 2px solid #2563eb;
+    }
+    .notes {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-bottom: 20px;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 40px;
+      padding-top: 10px;
+    }
+    .signature-box {
+      text-align: center;
+      width: 200px;
+    }
+    .signature-line {
+      border-bottom: 1px solid #333;
+      height: 60px;
+      margin-bottom: 5px;
+    }
+    .footer-text {
+      text-align: center;
+      font-size: 10px;
+      color: #999;
+      margin-top: 20px;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    @page { size: A4; margin: 10mm; }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <div class="company-name">شن‌سازه</div>
+        <div class="company-desc">فروشگاه تخصصی ابزار و مصالح ساختمانی</div>
+        <div class="company-desc">تهران، خیابان ولیعصر | تلفن: ۰۲۱-۱۲۳۴۵۶۷۸</div>
+      </div>
+      <div>
+        <div class="invoice-title">فاکتور فروش</div>
+        <table class="invoice-meta">
+          <tr><td>شماره:</td><td><strong>#{{ invoice.number }}</strong></td></tr>
+          <tr><td>تاریخ:</td><td>{{ invoice.jalali_date }}</td></tr>
+          <tr><td>وضعیت:</td><td>{% if invoice.status == 'paid' %}پرداخت شده{% elif invoice.status == 'issued' %}صادر شده{% elif invoice.status == 'draft' %}پیش‌نویس{% else %}لغو شده{% endif %}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Customer -->
+    <div class="section-title">مشخصات خریدار</div>
+    <div class="customer-info">
+      <span><strong>نام:</strong> {{ invoice.customer_name }}</span>
+      <span><strong>تلفن:</strong> {{ invoice.customer_phone|default:"---" }}</span>
+      <span><strong>آدرس:</strong> {{ invoice.customer_address|default:"---" }}</span>
+    </div>
+
+    <!-- Items -->
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:5%">ردیف</th>
+          <th style="width:35%">شرح کالا/خدمات</th>
+          <th style="width:10%">تعداد</th>
+          <th style="width:10%">واحد</th>
+          <th style="width:20%">قیمت واحد (تومان)</th>
+          <th style="width:20%">مبلغ کل (تومان)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% load humanize %}
+        {% for item in invoice.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td style="text-align:right;">{{ item.description|default:item.product.name }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ item.unit|default:"عدد" }}</td>
+          <td>{{ item.unit_price|intcomma }}</td>
+          <td><strong>{{ item.total_price|intcomma }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div class="totals">
+      <table>
+        <tr>
+          <td>جمع کل:</td>
+          <td>{{ invoice.subtotal|intcomma }} تومان</td>
+        </tr>
+        {% if invoice.discount %}
+        <tr>
+          <td>تخفیف:</td>
+          <td style="color:red;">{{ invoice.discount|intcomma }}- تومان</td>
+        </tr>
+        {% endif %}
+        {% if invoice.tax_amount %}
+        <tr>
+          <td>مالیات ({{ invoice.tax_percent }}%):</td>
+          <td>{{ invoice.tax_amount|intcomma }} تومان</td>
+        </tr>
+        {% endif %}
+        <tr class="grand-total">
+          <td><strong>مبلغ قابل پرداخت:</strong></td>
+          <td><strong>{{ invoice.total_amount|intcomma }} تومان</strong></td>
+        </tr>
+      </table>
+    </div>
+
+    {% if invoice.notes %}
+    <div class="notes">
+      <strong>توضیحات:</strong> {{ invoice.notes }}
+    </div>
+    {% endif %}
+
+    <!-- Signatures -->
+    <div class="signatures">
+      <div class="signature-box">
+        <div class="signature-line"></div>
+        <strong>مهر و امضای فروشنده</strong>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line"></div>
+        <strong>امضای خریدار</strong>
+      </div>
+    </div>
+
+    <div class="footer-text">
+      این فاکتور به صورت سیستمی صادر شده و دارای اعتبار قانونی می‌باشد.
+    </div>
+  </div>
+</body>
+</html>

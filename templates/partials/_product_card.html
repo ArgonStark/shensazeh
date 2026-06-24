@@ -1,0 +1,28 @@
+{% load humanize %}
+{# Reusable product card — expects `product` in context. Uses real model fields. #}
+<div class="product-card h-100 shadow-soft d-flex flex-column" data-aos="fade-up">
+  <a href="{% url 'store:product_detail' product.slug %}" class="img-wrap d-block">
+    {% if product.image_url %}
+    <img src="{{ product.image_url }}" class="product-img" alt="{{ product.name }}" loading="lazy">
+    {% else %}
+    <img src="https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=600&q=70" class="product-img" alt="{{ product.name }}" loading="lazy">
+    {% endif %}
+    {% if product.category %}
+    <span class="cat-chip">{{ product.category.name }}</span>
+    {% endif %}
+  </a>
+  <div class="card-body d-flex flex-column p-3">
+    <h6 class="card-title fw-bold mb-2 lh-base">
+      <a href="{% url 'store:product_detail' product.slug %}">{{ product.name|truncatechars:48 }}</a>
+    </h6>
+    <div class="mt-auto pt-2 d-flex align-items-center justify-content-between">
+      {% if product.is_available %}
+      <span class="price fs-6">{{ product.price|intcomma }} <small class="text-muted fw-normal">تومان</small></span>
+      <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>موجود</span>
+      {% else %}
+      <span class="text-muted small">تماس بگیرید</span>
+      <span class="badge bg-danger-subtle text-danger">ناموجود</span>
+      {% endif %}
+    </div>
+  </div>
+</div>

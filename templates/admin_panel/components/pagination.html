@@ -1,0 +1,24 @@
+{% if page_obj.has_other_pages %}
+<div class="px-6 py-4 border-t flex items-center justify-between">
+  <span class="text-sm text-gray-500">
+    نمایش {{ page_obj.start_index }} تا {{ page_obj.end_index }} از {{ page_obj.paginator.count }} مورد
+  </span>
+  <div class="flex gap-1">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}"
+       class="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">قبلی</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+      <span class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">{{ num }}</span>
+      {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+      <a href="?page={{ num }}" class="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}"
+       class="px-3 py-1.5 rounded-lg border text-sm hover:bg-gray-50">بعدی</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

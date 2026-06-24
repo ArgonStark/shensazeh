@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ category.name }} | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'store:category_list' %}">دسته‌بندی‌ها</a></li>
+      <li class="breadcrumb-item active">{{ category.name }}</li>
+    </ol>
+  </nav>
+
+  <!-- Category Header -->
+  <div class="card border-0 shadow-soft mb-4 overflow-hidden">
+    <div class="row g-0 align-items-center">
+      <div class="col-md-3 d-none d-md-block">
+        {% if category.image %}
+        <img src="{{ category.image.url }}" alt="{{ category.name }}" style="height:160px;width:100%;object-fit:cover">
+        {% else %}
+        <img src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=500&q=70" alt="{{ category.name }}" style="height:160px;width:100%;object-fit:cover">
+        {% endif %}
+      </div>
+      <div class="col-md-9">
+        <div class="card-body p-4">
+          <h1 class="fw-bold mb-2">{{ category.name }}</h1>
+          {% if category.description %}
+          <p class="text-muted mb-2">{{ category.description }}</p>
+          {% endif %}
+          <span class="badge bg-brand-soft text-brand">{{ products|length }} محصول</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Sidebar -->
+    <div class="col-lg-3">
+      <div class="card border-0 shadow-soft mb-4">
+        <div class="card-body">
+          <h6 class="fw-bold mb-3"><i class="bi bi-grid me-2 text-brand"></i>دسته‌بندی‌ها</h6>
+          <div class="d-flex flex-column gap-1">
+            {% for cat in root_categories %}
+            <a href="{% url 'store:category_detail' cat.slug %}"
+               class="d-flex justify-content-between align-items-center px-3 py-2 rounded-3 text-decoration-none {% if cat.pk == category.pk %}bg-brand-soft text-brand fw-bold{% else %}text-body{% endif %}">
+              <span>{{ cat.name }}</span>
+              <i class="bi bi-chevron-left small"></i>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-soft bg-brand-soft">
+        <div class="card-body text-center">
+          <i class="bi bi-headset fs-1 text-brand"></i>
+          <h6 class="fw-bold mt-2">نیاز به مشاوره دارید؟</h6>
+          <p class="small text-muted mb-3">کارشناسان ما آماده کمک هستند</p>
+          <a href="tel:02112345678" class="btn btn-primary btn-sm w-100"><i class="bi bi-telephone me-1"></i> تماس بگیرید</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products grid -->
+    <div class="col-lg-9">
+      <div class="row g-4">
+        {% for product in products %}
+        <div class="col-6 col-md-4">
+          {% include "partials/_product_card.html" %}
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+          <i class="bi bi-search fs-1 text-muted d-block mb-3"></i>
+          <h5 class="text-muted">محصولی در این دسته‌بندی یافت نشد.</h5>
+          <a href="{% url 'store:category_list' %}" class="btn btn-outline-primary btn-sm mt-2">بازگشت به دسته‌بندی‌ها</a>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% include "partials/_pagination.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

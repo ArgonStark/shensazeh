@@ -1,0 +1,247 @@
+{# Sidebar component - fixed right, dark theme #}
+{% with url_name=request.resolver_match.url_name %}
+
+<aside x-cloak
+       :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-full'"
+       class="fixed top-0 right-0 h-full w-64 bg-[#1E2433] text-gray-300 z-40
+              transition-transform duration-300 ease-in-out
+              flex flex-col overflow-y-auto">
+
+    {# --- Logo --- #}
+    <div class="flex items-center gap-3 px-5 py-5 border-b border-gray-700/50">
+        <div class="flex-shrink-0 w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3H21m-3.75 3H21"/>
+            </svg>
+        </div>
+        <div class="flex flex-col">
+            <span class="text-white font-bold text-sm leading-tight">پنل مدیریت</span>
+            <span class="text-indigo-400 text-xs">شن‌سازه</span>
+        </div>
+        {# Mobile close button #}
+        <button @click="sidebarOpen = false" class="lg:hidden mr-auto text-gray-400 hover:text-white">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    {# --- Navigation --- #}
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+
+        {# 1. داشبورد #}
+        <a href="{% url 'admin_panel:dashboard' %}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {% if url_name == 'dashboard' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+            </svg>
+            <span>داشبورد</span>
+        </a>
+
+        {# 2. فروشگاه #}
+        <div x-data="{ open: {% if url_name == 'category_list' or url_name == 'product_list' or url_name == 'review_list' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016A3.001 3.001 0 0020.25 9.35m-16.5 0c0-1.08.288-2.093.793-2.965A3.75 3.75 0 018.25 3h7.5a3.75 3.75 0 013.707 3.385A6.002 6.002 0 0120.25 9.35"/>
+                    </svg>
+                    <span>فروشگاه</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:category_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'category_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    دسته‌بندی‌ها
+                </a>
+                <a href="{% url 'admin_panel:product_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'product_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    محصولات
+                </a>
+                <a href="{% url 'admin_panel:review_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'review_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    نظرات
+                </a>
+            </div>
+        </div>
+
+        {# 3. انبارداری #}
+        <div x-data="{ open: {% if url_name == 'inventory_list' or url_name == 'inventory_report' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/>
+                    </svg>
+                    <span>انبارداری</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:inventory_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'inventory_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    ورود/خروج کالا
+                </a>
+                <a href="{% url 'admin_panel:inventory_report' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'inventory_report' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    گزارش موجودی
+                </a>
+            </div>
+        </div>
+
+        {# 4. فاکتورها #}
+        <div x-data="{ open: {% if url_name == 'invoice_list' or url_name == 'invoice_create' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                    </svg>
+                    <span>فاکتورها</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:invoice_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'invoice_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    لیست فاکتورها
+                </a>
+                <a href="{% url 'admin_panel:invoice_create' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'invoice_create' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    فاکتور جدید
+                </a>
+            </div>
+        </div>
+
+        {# 5. وبلاگ #}
+        <div x-data="{ open: {% if url_name == 'post_list' or url_name == 'announcement_list' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>
+                    </svg>
+                    <span>وبلاگ</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:post_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'post_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    مقالات
+                </a>
+                <a href="{% url 'admin_panel:announcement_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'announcement_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    اطلاعیه‌ها
+                </a>
+            </div>
+        </div>
+
+        {# 6. کاربران #}
+        <div x-data="{ open: {% if url_name == 'user_list' or url_name == 'staff_list' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+                    </svg>
+                    <span>کاربران</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:user_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'user_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    لیست کاربران
+                </a>
+                <a href="{% url 'admin_panel:staff_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'staff_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    همکاران
+                </a>
+            </div>
+        </div>
+
+        {# 7. خدمات و پروژه‌ها #}
+        <div x-data="{ open: {% if url_name == 'service_list' or url_name == 'project_list' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.384 3.175A1.125 1.125 0 014.5 17.316V5.25A2.25 2.25 0 016.75 3h10.5a2.25 2.25 0 012.25 2.25v12.066a1.125 1.125 0 01-1.536 1.029l-5.384-3.175a.75.75 0 00-.71 0zM15.75 9.75h-7.5"/>
+                    </svg>
+                    <span>خدمات و پروژه‌ها</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:service_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'service_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    خدمات
+                </a>
+                <a href="{% url 'admin_panel:project_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'project_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    پروژه‌ها
+                </a>
+            </div>
+        </div>
+
+        {# 8. تنظیمات #}
+        <a href="{% url 'admin_panel:site_settings' %}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {% if url_name == 'site_settings' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span>تنظیمات</span>
+        </a>
+
+    </nav>
+
+    {# --- User info at bottom --- #}
+    <div class="px-4 py-4 border-t border-gray-700/50">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                {{ request.user.first_name|default:request.user.username|truncatechars:1|upper }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-white font-medium truncate">
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </p>
+                <p class="text-xs text-gray-400 truncate">
+                    {% if request.user.is_superuser %}مدیر ارشد{% elif request.user.is_staff %}همکار{% else %}کاربر{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+</aside>
+
+{% endwith %}

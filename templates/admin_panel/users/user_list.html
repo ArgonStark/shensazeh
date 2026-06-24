@@ -1,0 +1,82 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}کاربران{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <h1 class="text-2xl font-bold text-gray-800">کاربران</h1>
+    <p class="text-sm text-gray-500 mt-1">لیست کاربران سایت</p>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{# --- Search --- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+    <form method="get" class="flex gap-4">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="جستجو (نام، موبایل)..." class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+        <button type="submit" class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition text-sm font-medium">جستجو</button>
+    </form>
+</div>
+
+{# --- Table --- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">نام</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">موبایل</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">استان/شهر</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ عضویت</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">سفارشات</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for user in users %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3 font-medium text-gray-800">{{ user.get_full_name|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600 font-mono text-xs" dir="ltr">{{ user.mobile }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ user.province|default:"" }}{% if user.province and user.city %} / {% endif %}{{ user.city|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ user.date_joined|date:"Y/m/d" }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ user.order_count|default:0 }}</td>
+                    <td class="px-4 py-3">
+                        {% if user.is_active %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">فعال</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">غیرفعال</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-12 text-center text-gray-400">کاربری ثبت نشده است</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if users.has_other_pages %}
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-center gap-1">
+        {% if users.has_previous %}
+        <a href="?page={{ users.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">قبلی</a>
+        {% endif %}
+        {% for num in users.paginator.page_range %}
+            {% if users.number == num %}
+            <span class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white font-medium">{{ num }}</span>
+            {% elif num > users.number|add:'-3' and num < users.number|add:'3' %}
+            <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if users.has_next %}
+        <a href="?page={{ users.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">بعدی</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

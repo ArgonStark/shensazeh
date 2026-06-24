@@ -1,0 +1,74 @@
+{% load static %}
+
+{# ---------- Top bar ---------- #}
+<div class="topbar d-none d-md-block">
+  <div class="container d-flex justify-content-between align-items-center py-2">
+    <div class="d-flex align-items-center gap-3">
+      {% if site.phone %}<span><i class="bi bi-telephone-fill text-warning me-1"></i> {{ site.phone }}</span>{% endif %}
+      {% if site.address %}<span class="d-none d-lg-inline"><i class="bi bi-geo-alt-fill text-warning me-1"></i> {{ site.address }}</span>{% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      {% if site.shipping_note %}<span><i class="bi bi-truck text-warning me-1"></i> {{ site.shipping_note }}</span>{% endif %}
+      <a href="{% url 'blog:announcement_list' %}"><i class="bi bi-megaphone me-1"></i> اطلاعیه‌ها</a>
+    </div>
+  </div>
+</div>
+
+{# ---------- Main navbar ---------- #}
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'store:home' %}">
+      <span class="brand-mark"><i class="bi bi-bricks"></i></span>
+      <span>{{ site.site_name|default:"شن‌سازه" }}</span>
+    </a>
+
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="منو">
+      <i class="bi bi-list fs-2"></i>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav mx-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'store:home' %}">خانه</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">دسته‌بندی‌ها</a>
+          <ul class="dropdown-menu">
+            {% for cat in root_categories %}
+            <li><a class="dropdown-item" href="{% url 'store:category_detail' cat.slug %}"><i class="bi bi-tag me-2 text-primary"></i>{{ cat.name }}</a></li>
+            {% empty %}
+            <li><span class="dropdown-item disabled">دسته‌بندی موجود نیست</span></li>
+            {% endfor %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item fw-bold" href="{% url 'store:category_list' %}">همه دسته‌بندی‌ها</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'store:category_list' %}">فروشگاه</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'services:service_list' %}">خدمات</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'services:project_list' %}">پروژه‌ها</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'blog:blog_list' %}">بلاگ</a></li>
+      </ul>
+
+      <div class="d-flex align-items-center gap-2">
+        <form class="nav-search position-relative d-none d-lg-block" role="search" action="{% url 'store:category_list' %}" method="get">
+          <input class="form-control form-control-sm" style="width:220px" type="search" name="q" placeholder="جستجوی محصول..." id="searchInput" autocomplete="off" aria-label="جستجو">
+          <i class="bi bi-search search-icon"></i>
+          <div id="searchResults" class="position-absolute bg-white shadow rounded-3 d-none mt-1" style="z-index:1050;top:100%;right:0;min-width:300px;"></div>
+        </form>
+
+        {% if user.is_authenticated %}
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'accounts:profile' %}">
+          <i class="bi bi-person-circle"></i> <span class="d-none d-sm-inline">پروفایل</span>
+        </a>
+        {% if user.is_staff %}
+        <a class="btn btn-accent btn-sm" href="{% url 'admin_panel:dashboard' %}">
+          <i class="bi bi-speedometer2"></i> <span class="d-none d-sm-inline">پنل</span>
+        </a>
+        {% endif %}
+        {% else %}
+        <a class="btn btn-primary btn-sm px-3" href="{% url 'accounts:login' %}">
+          <i class="bi bi-box-arrow-in-left"></i> ورود
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</nav>

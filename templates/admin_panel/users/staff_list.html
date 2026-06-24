@@ -1,0 +1,132 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}کارکنان{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">کارکنان</h1>
+        <p class="text-sm text-gray-500 mt-1">مدیریت دسترسی کارکنان</p>
+    </div>
+    <button @click="$dispatch('open-add-staff')" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        افزودن کارمند
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ addModal: false, deleteModal: false, deleteUrl: '' }" @open-add-staff.window="addModal = true">
+
+    {# --- Table --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نام</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">موبایل</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نقش</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for staff in staff_list %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ staff.get_full_name|default:"-" }}</td>
+                        <td class="px-4 py-3 text-gray-600 font-mono text-xs" dir="ltr">{{ staff.mobile }}</td>
+                        <td class="px-4 py-3">
+                            {% if staff.is_superuser %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">مدیر ارشد</span>
+                            {% elif staff.role == 'manager' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">مدیر</span>
+                            {% elif staff.role == 'editor' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">ویراستار</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">کارمند</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if staff.is_active %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">فعال</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">غیرفعال</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'admin_panel:staff_edit' staff.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+                                <button @click="deleteUrl = '{% url 'admin_panel:staff_delete' staff.pk %}'; deleteModal = true" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="حذف">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">کارمندی ثبت نشده است</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Add Staff Modal #}
+    <div x-show="addModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="addModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">افزودن کارمند جدید</h3>
+            </div>
+            <form method="post" action="{% url 'admin_panel:staff_create' %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="staff_mobile" class="block text-sm font-medium text-gray-700 mb-1">شماره موبایل</label>
+                    <input type="tel" name="mobile" id="staff_mobile" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" dir="ltr" placeholder="09xxxxxxxxx" required>
+                </div>
+                <div>
+                    <label for="staff_role" class="block text-sm font-medium text-gray-700 mb-1">نقش</label>
+                    <select name="role" id="staff_role" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                        <option value="staff">کارمند</option>
+                        <option value="editor">ویراستار</option>
+                        <option value="manager">مدیر</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">افزودن</button>
+                    <button type="button" @click="addModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Delete Modal #}
+    <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="deleteModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative z-10">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">حذف کارمند</h3>
+            <p class="text-sm text-gray-500 mb-6">آیا از حذف دسترسی این کارمند اطمینان دارید؟</p>
+            <div class="flex items-center gap-3 justify-end">
+                <button @click="deleteModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                <form :action="deleteUrl" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition">حذف</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

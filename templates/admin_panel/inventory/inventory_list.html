@@ -1,0 +1,92 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}موجودی انبار{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">موجودی انبار</h1>
+        <p class="text-sm text-gray-500 mt-1">ثبت ورود و خروج کالا</p>
+    </div>
+    <a href="{% url 'admin_panel:inventory_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        ثبت جدید
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{# --- Filter Tabs --- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-6 flex gap-1">
+    <a href="?type=all" class="px-4 py-2 text-sm font-medium rounded-lg transition {% if request.GET.type == 'all' or not request.GET.type %}bg-gray-800 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">همه</a>
+    <a href="?type=in" class="px-4 py-2 text-sm font-medium rounded-lg transition {% if request.GET.type == 'in' %}bg-green-600 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">ورود</a>
+    <a href="?type=out" class="px-4 py-2 text-sm font-medium rounded-lg transition {% if request.GET.type == 'out' %}bg-red-600 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}">خروج</a>
+</div>
+
+{# --- Table --- #}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">محصول</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">تعداد</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">تأمین‌کننده</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">مرجع</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">ثبت‌کننده</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for entry in entries %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3">
+                        {% if entry.entry_type == 'in' %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">ورود</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">خروج</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-medium text-gray-800">{{ entry.product.name }}</td>
+                    <td class="px-4 py-3 text-gray-700">{{ entry.quantity|intcomma }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ entry.supplier|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ entry.reference|default:"-" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ entry.created_by.get_full_name|default:entry.created_by.mobile }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.created_at|date:"Y/m/d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">رکوردی ثبت نشده است</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Pagination #}
+    {% if entries.has_other_pages %}
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-center gap-1">
+        {% if entries.has_previous %}
+        <a href="?page={{ entries.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">قبلی</a>
+        {% endif %}
+        {% for num in entries.paginator.page_range %}
+            {% if entries.number == num %}
+            <span class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white font-medium">{{ num }}</span>
+            {% elif num > entries.number|add:'-3' and num < entries.number|add:'3' %}
+            <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if entries.has_next %}
+        <a href="?page={{ entries.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">بعدی</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

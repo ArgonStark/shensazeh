@@ -1,0 +1,163 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}محصولات{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">محصولات</h1>
+        <p class="text-sm text-gray-500 mt-1">مدیریت محصولات فروشگاه</p>
+    </div>
+    <a href="{% url 'admin_panel:product_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        افزودن محصول
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ deleteModal: false, deleteUrl: '' }">
+
+    {# --- Filters --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="جستجو در محصولات..." class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+            </div>
+            <div>
+                <select name="category" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                    <option value="">همه دسته‌بندی‌ها</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if request.GET.category == cat.id|slugify %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <select name="stock" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                    <option value="">وضعیت موجودی</option>
+                    <option value="in_stock" {% if request.GET.stock == 'in_stock' %}selected{% endif %}>موجود</option>
+                    <option value="low_stock" {% if request.GET.stock == 'low_stock' %}selected{% endif %}>کم‌موجود</option>
+                    <option value="out_of_stock" {% if request.GET.stock == 'out_of_stock' %}selected{% endif %}>ناموجود</option>
+                </select>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition text-sm font-medium">فیلتر</button>
+                <a href="{% url 'admin_panel:product_list' %}" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-sm font-medium">پاک</a>
+            </div>
+        </form>
+    </div>
+
+    {# --- Table --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تصویر</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نام</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">دسته‌بندی</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">قیمت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">موجودی</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for product in products %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3">
+                            {% if product.primary_image %}
+                            <img src="{{ product.primary_image.url }}" alt="{{ product.name }}" class="w-10 h-10 rounded-lg object-cover">
+                            {% else %}
+                            <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ product.name }}</td>
+                        <td class="px-4 py-3 text-gray-500">{{ product.category.name|default:"-" }}</td>
+                        <td class="px-4 py-3 text-gray-700">{{ product.price|intcomma }} تومان</td>
+                        <td class="px-4 py-3">
+                            {% if product.stock == 0 %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">ناموجود</span>
+                            {% elif product.stock <= 5 %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">{{ product.stock }}</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ product.stock }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if product.is_active %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">فعال</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">غیرفعال</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <a href="{% url 'admin_panel:product_edit' product.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+                                <button @click="deleteUrl = '{% url 'admin_panel:product_delete' product.pk %}'; deleteModal = true" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="حذف">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-12 text-center text-gray-400">محصولی یافت نشد</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# Pagination #}
+        {% if products.has_other_pages %}
+        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-center gap-1">
+            {% if products.has_previous %}
+            <a href="?page={{ products.previous_page_number }}&{{ request.GET.urlencode }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">قبلی</a>
+            {% endif %}
+            {% for num in products.paginator.page_range %}
+                {% if products.number == num %}
+                <span class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white font-medium">{{ num }}</span>
+                {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                <a href="?page={{ num }}&{{ request.GET.urlencode }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if products.has_next %}
+            <a href="?page={{ products.next_page_number }}&{{ request.GET.urlencode }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">بعدی</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# Delete Modal #}
+    <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="deleteModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative z-10">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">حذف محصول</h3>
+            <p class="text-sm text-gray-500 mb-6">آیا از حذف این محصول اطمینان دارید؟ این عمل غیرقابل بازگشت است.</p>
+            <div class="flex items-center gap-3 justify-end">
+                <button @click="deleteModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                <form :action="deleteUrl" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition">حذف</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

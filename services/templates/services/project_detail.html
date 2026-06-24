@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.title }} | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'services:project_list' %}">پروژه‌ها</a></li>
+      <li class="breadcrumb-item active">{{ project.title }}</li>
+    </ol>
+  </nav>
+
+  <h1 class="fw-bold mb-4">{{ project.title }}</h1>
+
+  <!-- Project Info -->
+  <div class="d-flex gap-3 mb-4 flex-wrap">
+    {% if project.location %}
+    <span class="badge bg-primary-subtle text-primary fs-6 px-3 py-2">
+      <i class="bi bi-geo-alt me-1"></i>{{ project.location }}
+    </span>
+    {% endif %}
+    {% if project.year %}
+    <span class="badge bg-secondary-subtle text-secondary fs-6 px-3 py-2">
+      <i class="bi bi-calendar3 me-1"></i>{{ project.year }}
+    </span>
+    {% endif %}
+    {% if project.client %}
+    <span class="badge bg-success-subtle text-success fs-6 px-3 py-2">
+      <i class="bi bi-person me-1"></i>{{ project.client }}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Image Gallery -->
+  {% if project_images %}
+  <div class="mb-5">
+    <div id="projectGallery" class="carousel slide" data-bs-ride="false">
+      <div class="carousel-inner rounded shadow-sm">
+        {% for image in project_images %}
+        <div class="carousel-item {% if forloop.first %}active{% endif %}">
+          <img src="{{ image.image.url }}" class="d-block w-100" alt="{{ project.title }}" style="height:500px;object-fit:cover;cursor:zoom-in;" data-bs-toggle="modal" data-bs-target="#galleryModal" data-img="{{ image.image.url }}">
+        </div>
+        {% endfor %}
+      </div>
+      {% if project_images|length > 1 %}
+      <button class="carousel-control-prev" type="button" data-bs-target="#projectGallery" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon bg-dark rounded-circle p-3"></span>
+      </button>
+      <button class="carousel-control-next" type="button" data-bs-target="#projectGallery" data-bs-slide="next">
+        <span class="carousel-control-next-icon bg-dark rounded-circle p-3"></span>
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Thumbnails -->
+    {% if project_images|length > 1 %}
+    <div class="d-flex gap-2 mt-3 overflow-auto pb-2">
+      {% for image in project_images %}
+      <img src="{{ image.image.url }}" class="rounded gallery-thumb {% if forloop.first %}border border-primary border-2{% endif %}" alt="تصویر {{ forloop.counter }}" style="width:80px;height:80px;object-fit:cover;cursor:pointer;" data-bs-target="#projectGallery" data-bs-slide-to="{{ forloop.counter0 }}">
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% elif project.image %}
+  <img src="{{ project.image.url }}" class="w-100 rounded shadow-sm mb-5" alt="{{ project.title }}" style="max-height:500px;object-fit:cover;">
+  {% endif %}
+
+  <!-- Description -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <h4 class="fw-bold mb-3">درباره پروژه</h4>
+          <div class="lh-lg">
+            {{ project.full_description|safe }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <!-- Project Specs -->
+      {% if project_specs %}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3">مشخصات پروژه</h5>
+          <table class="table table-borderless table-sm">
+            {% for spec in project_specs %}
+            <tr>
+              <td class="text-muted">{{ spec.key }}:</td>
+              <td class="fw-bold">{{ spec.value }}</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Related Projects -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3">پروژه‌های مرتبط</h5>
+          {% for related in related_projects %}
+          <a href="{% url 'services:project_detail' related.slug %}" class="d-flex gap-3 text-decoration-none text-dark py-2 {% if not forloop.last %}border-bottom{% endif %}">
+            {% if related.image %}
+            <img src="{{ related.image.url }}" class="rounded" style="width:60px;height:60px;object-fit:cover;">
+            {% endif %}
+            <div>
+              <div class="fw-bold small">{{ related.title }}</div>
+              {% if related.location %}
+              <small class="text-muted">{{ related.location }}</small>
+              {% endif %}
+            </div>
+          </a>
+          {% empty %}
+          <p class="text-muted small">پروژه مرتبطی موجود نیست.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Gallery Modal -->
+<div class="modal fade" id="galleryModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 bg-transparent">
+      <div class="modal-body p-0 text-center">
+        <img src="" id="galleryZoomImage" class="img-fluid rounded" alt="تصویر بزرگ">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('#projectGallery .carousel-item img').forEach(img => {
+    img.addEventListener('click', function() {
+      document.getElementById('galleryZoomImage').src = this.dataset.img;
+    });
+  });
+  document.querySelectorAll('.gallery-thumb').forEach(thumb => {
+    thumb.addEventListener('click', function() {
+      document.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('border', 'border-primary', 'border-2'));
+      this.classList.add('border', 'border-primary', 'border-2');
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}تایید کد | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5 col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <i class="bi bi-shield-lock fs-1 text-primary"></i>
+            <h4 class="fw-bold mt-2">تایید شماره موبایل</h4>
+            <p class="text-muted small">کد ارسال شده به <strong dir="ltr">{{ phone }}</strong> را وارد کنید</p>
+          </div>
+
+          <form method="post" action="{% url 'accounts:verify_otp' %}">
+            {% csrf_token %}
+            <input type="hidden" name="phone" value="{{ phone }}">
+
+            <div class="mb-4">
+              <label for="otp" class="form-label fw-bold">کد تایید</label>
+              <div class="d-flex gap-2 justify-content-center otp-inputs" dir="ltr">
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="0" autofocus>
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="1">
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="2">
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="3">
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="4">
+                <input type="text" class="form-control form-control-lg text-center otp-digit" maxlength="1" data-index="5">
+              </div>
+              <input type="hidden" name="otp" id="otpFull">
+              {% if form.otp.errors %}
+              <div class="text-danger small mt-2 text-center">{{ form.otp.errors.0 }}</div>
+              {% endif %}
+              {% if error %}
+              <div class="text-danger small mt-2 text-center">{{ error }}</div>
+              {% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+              <i class="bi bi-check-circle me-1"></i> تایید و ورود
+            </button>
+          </form>
+
+          <!-- Resend Timer -->
+          <div class="text-center mt-3">
+            <div id="otpTimer">
+              <span class="text-muted">ارسال مجدد کد تا </span>
+              <span class="fw-bold text-primary" id="countdown">02:00</span>
+            </div>
+            <form method="post" action="{% url 'accounts:login' %}" id="resendForm" class="d-none">
+              {% csrf_token %}
+              <input type="hidden" name="phone" value="{{ phone }}">
+              <button type="submit" class="btn btn-link text-decoration-none">
+                <i class="bi bi-arrow-repeat me-1"></i> ارسال مجدد کد
+              </button>
+            </form>
+          </div>
+
+          <div class="text-center mt-3">
+            <a href="{% url 'accounts:login' %}" class="text-muted small">
+              <i class="bi bi-arrow-right me-1"></i> تغییر شماره موبایل
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Initialize OTP inputs and timer
+  document.addEventListener('DOMContentLoaded', function() {
+    initOtpInputs();
+    startOtpCountdown(120);
+  });
+</script>
+{% endblock %}

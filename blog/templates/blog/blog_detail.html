@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ post.title }} | بلاگ شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'blog:blog_list' %}">بلاگ</a></li>
+      <li class="breadcrumb-item active">{{ post.title }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <article>
+        <!-- Header -->
+        {% if post.image %}
+        <img src="{{ post.image.url }}" class="w-100 rounded shadow-sm mb-4" alt="{{ post.title }}" style="max-height:400px;object-fit:cover;">
+        {% endif %}
+
+        <h1 class="fw-bold mb-3">{{ post.title }}</h1>
+
+        <div class="d-flex gap-3 text-muted mb-4 flex-wrap">
+          <span><i class="bi bi-calendar3 me-1"></i>{{ post.jalali_date }}</span>
+          <span><i class="bi bi-person me-1"></i>{{ post.author.get_full_name|default:"تیم شن‌سازه" }}</span>
+          {% if post.category %}
+          <span class="badge bg-primary-subtle text-primary">{{ post.category }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Content -->
+        <div class="blog-content lh-lg">
+          {{ post.content|safe }}
+        </div>
+
+        <!-- Tags -->
+        {% if post.tags.all %}
+        <div class="mt-4 pt-3 border-top">
+          <i class="bi bi-tags me-2"></i>
+          {% for tag in post.tags.all %}
+          <span class="badge bg-light text-dark me-1">{{ tag.name }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+
+      <!-- Comments Section -->
+      <div class="mt-5">
+        <h4 class="fw-bold mb-4">
+          <i class="bi bi-chat-dots me-2"></i>نظرات ({{ comments.count|default:"۰" }})
+        </h4>
+
+        {% if user.is_authenticated %}
+        <form method="post" action="{% url 'blog:blog_detail' post.slug %}" class="mb-4 p-3 bg-light rounded">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-bold">نظر شما</label>
+            <textarea name="content" class="form-control" rows="3" placeholder="نظر خود را بنویسید..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send me-1"></i> ارسال نظر
+          </button>
+        </form>
+        {% else %}
+        <div class="alert alert-info mb-4">
+          برای ثبت نظر لطفا <a href="{% url 'accounts:login' %}">وارد شوید</a>.
+        </div>
+        {% endif %}
+
+        {% for comment in comments %}
+        <div class="border-bottom py-3 {% if forloop.last %}border-0{% endif %}">
+          <div class="d-flex justify-content-between mb-2">
+            <strong>{{ comment.user.get_full_name|default:comment.user.phone }}</strong>
+            <small class="text-muted">{{ comment.jalali_date }}</small>
+          </div>
+          <p class="mb-0 text-muted">{{ comment.content }}</p>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-chat fs-1 d-block mb-2"></i>
+          هنوز نظری ثبت نشده است.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3">مقالات اخیر</h5>
+          {% for recent in recent_posts %}
+          <div class="d-flex gap-3 mb-3 {% if not forloop.last %}pb-3 border-bottom{% endif %}">
+            {% if recent.image %}
+            <img src="{{ recent.image.url }}" class="rounded" alt="{{ recent.title }}" style="width:60px;height:60px;object-fit:cover;">
+            {% endif %}
+            <div>
+              <a href="{% url 'blog:blog_detail' recent.slug %}" class="text-decoration-none text-dark fw-bold small">{{ recent.title }}</a>
+              <div class="text-muted small mt-1">{{ recent.jalali_date }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

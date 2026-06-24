@@ -1,0 +1,68 @@
+{% load static %}
+<footer class="site-footer pt-5 pb-4 mt-0">
+  <div class="container">
+    {# CTA strip #}
+    <div class="row align-items-center g-3 pb-5 mb-5 border-bottom border-secondary border-opacity-25">
+      <div class="col-lg-7">
+        <h4 class="fw-bold mb-1 text-white">مشاوره تخصصی برای پروژه شما</h4>
+        <p class="mb-0 text-secondary">کارشناسان ما آماده پاسخگویی و راهنمایی در انتخاب ابزار و مصالح مناسب هستند.</p>
+      </div>
+      <div class="col-lg-5 text-lg-start">
+        <a href="tel:{{ site.phone|default:'02112345678' }}" class="btn btn-accent px-4"><i class="bi bi-telephone-fill me-1"></i> تماس با کارشناسان</a>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-4 col-md-6">
+        <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+          <span class="brand-mark" style="width:36px;height:36px"><i class="bi bi-bricks"></i></span> {{ site.site_name|default:"شن‌سازه" }}
+        </h5>
+        <p class="text-secondary">{{ site.about_text|default:"فروشگاه تخصصی ابزار و مصالح ساختمانی با بیش از ده سال سابقه در ارائه بهترین محصولات و خدمات با ضمانت کیفیت." }}</p>
+        <div class="d-flex gap-2 mt-3">
+          {% if site.instagram %}<a href="{{ site.instagram }}" class="social-btn" aria-label="اینستاگرام" target="_blank" rel="noopener"><i class="bi bi-instagram"></i></a>{% endif %}
+          {% if site.telegram %}<a href="{{ site.telegram }}" class="social-btn" aria-label="تلگرام" target="_blank" rel="noopener"><i class="bi bi-telegram"></i></a>{% endif %}
+          {% if site.whatsapp %}<a href="{{ site.whatsapp }}" class="social-btn" aria-label="واتساپ" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i></a>{% endif %}
+          {% if site.linkedin %}<a href="{{ site.linkedin }}" class="social-btn" aria-label="لینکدین" target="_blank" rel="noopener"><i class="bi bi-linkedin"></i></a>{% endif %}
+        </div>
+      </div>
+
+      <div class="col-lg-2 col-md-6">
+        <h6 class="fw-bold mb-3">دسترسی سریع</h6>
+        <ul class="list-unstyled d-flex flex-column gap-2">
+          <li><a href="{% url 'store:home' %}">خانه</a></li>
+          <li><a href="{% url 'store:category_list' %}">فروشگاه</a></li>
+          <li><a href="{% url 'services:service_list' %}">خدمات</a></li>
+          <li><a href="{% url 'services:project_list' %}">پروژه‌ها</a></li>
+          <li><a href="{% url 'blog:blog_list' %}">بلاگ</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <h6 class="fw-bold mb-3">تماس با ما</h6>
+        <ul class="list-unstyled d-flex flex-column gap-2 text-secondary">
+          {% if site.address %}<li><i class="bi bi-geo-alt-fill text-warning me-2"></i> {{ site.address }}</li>{% endif %}
+          {% if site.phone %}<li><i class="bi bi-telephone-fill text-warning me-2"></i> {{ site.phone }}</li>{% endif %}
+          {% if site.email %}<li><i class="bi bi-envelope-fill text-warning me-2"></i> {{ site.email }}</li>{% endif %}
+          {% if site.working_hours %}<li><i class="bi bi-clock-fill text-warning me-2"></i> {{ site.working_hours }}</li>{% endif %}
+        </ul>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <h6 class="fw-bold mb-3">خبرنامه</h6>
+        <p class="text-secondary small">برای اطلاع از جدیدترین محصولات و تخفیف‌ها عضو شوید.</p>
+        <form class="d-flex gap-2" onsubmit="return false">
+          <input type="email" class="form-control form-control-sm" placeholder="ایمیل شما" aria-label="ایمیل خبرنامه">
+          <button class="btn btn-accent btn-sm px-3" type="submit"><i class="bi bi-send"></i></button>
+        </form>
+        <div class="d-flex gap-2 mt-3">
+          <div class="trust-badge"><i class="bi bi-patch-check-fill text-success fs-3"></i></div>
+          <div class="trust-badge"><i class="bi bi-shield-lock-fill text-primary fs-3"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-secondary small mt-5 pt-3 border-top border-secondary border-opacity-25">
+      <p class="mb-0">{{ site.copyright_text|default:"تمامی حقوق مادی و معنوی این وب‌سایت متعلق به فروشگاه شن‌سازه می‌باشد." }} &copy; {{ year|default:"۱۴۰۴" }}</p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}ایجاد فاکتور | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="bi bi-receipt me-2"></i>ایجاد فاکتور جدید</h2>
+    <a href="{% url 'orders:invoice_list' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-right me-1"></i> بازگشت
+    </a>
+  </div>
+
+  <form method="post" action="{% url 'orders:invoice_create' %}" id="invoiceForm">
+    {% csrf_token %}
+    <div class="row g-4">
+      <!-- Customer Info -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body">
+            <h5 class="fw-bold mb-3">اطلاعات مشتری</h5>
+            <div class="mb-3">
+              <label class="form-label fw-bold">نام مشتری <span class="text-danger">*</span></label>
+              <input type="text" name="customer_name" class="form-control" value="{{ form.customer_name.value|default:'' }}" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">شماره تماس</label>
+              <input type="tel" name="customer_phone" class="form-control" dir="ltr" value="{{ form.customer_phone.value|default:'' }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">آدرس</label>
+              <textarea name="customer_address" class="form-control" rows="2">{{ form.customer_address.value|default:'' }}</textarea>
+            </div>
+
+            <hr>
+            <h5 class="fw-bold mb-3">تخفیف و مالیات</h5>
+            <div class="mb-3">
+              <label class="form-label fw-bold">تخفیف (تومان)</label>
+              <input type="number" name="discount" class="form-control" id="discountInput" value="{{ form.discount.value|default:'0' }}" min="0">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">مالیات (درصد)</label>
+              <input type="number" name="tax_percent" class="form-control" id="taxInput" value="{{ form.tax_percent.value|default:'9' }}" min="0" max="100">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">توضیحات</label>
+              <textarea name="notes" class="form-control" rows="2">{{ form.notes.value|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Items -->
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="fw-bold mb-0">اقلام فاکتور</h5>
+              <button type="button" class="btn btn-success btn-sm" id="addLineItem">
+                <i class="bi bi-plus-circle me-1"></i> افزودن ردیف
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle" id="lineItemsTable">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:5%">#</th>
+                    <th style="width:30%">محصول</th>
+                    <th style="width:15%">تعداد</th>
+                    <th style="width:20%">قیمت واحد (تومان)</th>
+                    <th style="width:20%">مبلغ</th>
+                    <th style="width:10%"></th>
+                  </tr>
+                </thead>
+                <tbody id="lineItemsBody">
+                  <tr class="line-item" data-row="0">
+                    <td class="row-number">۱</td>
+                    <td>
+                      <select name="items-0-product" class="form-select form-select-sm product-select">
+                        <option value="">انتخاب محصول</option>
+                        {% for product in products %}
+                        <option value="{{ product.id }}" data-price="{{ product.price }}">{{ product.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" name="items-0-quantity" class="form-control form-control-sm item-quantity" value="1" min="1">
+                    </td>
+                    <td>
+                      <input type="number" name="items-0-unit_price" class="form-control form-control-sm item-price" value="0" min="0">
+                    </td>
+                    <td class="item-total fw-bold">۰ تومان</td>
+                    <td>
+                      <button type="button" class="btn btn-outline-danger btn-sm remove-line-item">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <input type="hidden" name="items-TOTAL_FORMS" id="id_items-TOTAL_FORMS" value="1">
+            <input type="hidden" name="items-INITIAL_FORMS" value="0">
+
+            <!-- Totals -->
+            <div class="border-top pt-3 mt-3">
+              <div class="row justify-content-end">
+                <div class="col-md-5">
+                  <table class="table table-borderless table-sm mb-0">
+                    <tr>
+                      <td class="text-muted">جمع اقلام:</td>
+                      <td class="fw-bold text-start" id="subtotalDisplay">۰ تومان</td>
+                    </tr>
+                    <tr>
+                      <td class="text-muted">تخفیف:</td>
+                      <td class="text-danger text-start" id="discountDisplay">۰ تومان</td>
+                    </tr>
+                    <tr>
+                      <td class="text-muted">مالیات:</td>
+                      <td class="text-start" id="taxDisplay">۰ تومان</td>
+                    </tr>
+                    <tr class="border-top">
+                      <td class="fw-bold fs-5">مبلغ نهایی:</td>
+                      <td class="fw-bold fs-5 text-primary text-start" id="grandTotalDisplay">۰ تومان</td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button type="submit" name="status" value="issued" class="btn btn-primary">
+            <i class="bi bi-check-circle me-1"></i> صدور فاکتور
+          </button>
+          <button type="submit" name="status" value="draft" class="btn btn-outline-secondary">
+            <i class="bi bi-save me-1"></i> ذخیره پیش‌نویس
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initInvoiceForm();
+  });
+</script>
+{% endblock %}

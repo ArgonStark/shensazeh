@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}تکمیل پروفایل | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <i class="bi bi-person-badge fs-1 text-primary"></i>
+            <h4 class="fw-bold mt-2">تکمیل اطلاعات</h4>
+            <p class="text-muted small">لطفا اطلاعات خود را تکمیل کنید تا بتوانید سفارش ثبت کنید.</p>
+          </div>
+
+          <form method="post" action="{% url 'accounts:complete_profile' %}">
+            {% csrf_token %}
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">نام <span class="text-danger">*</span></label>
+                <input type="text" name="first_name" class="form-control {% if form.first_name.errors %}is-invalid{% endif %}" value="{{ form.first_name.value|default:'' }}" placeholder="نام" required>
+                {% if form.first_name.errors %}
+                <div class="invalid-feedback">{{ form.first_name.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">نام خانوادگی <span class="text-danger">*</span></label>
+                <input type="text" name="last_name" class="form-control {% if form.last_name.errors %}is-invalid{% endif %}" value="{{ form.last_name.value|default:'' }}" placeholder="نام خانوادگی" required>
+                {% if form.last_name.errors %}
+                <div class="invalid-feedback">{{ form.last_name.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">استان <span class="text-danger">*</span></label>
+                <select name="province" class="form-select {% if form.province.errors %}is-invalid{% endif %}" id="provinceSelect" required>
+                  <option value="">انتخاب استان</option>
+                  {% for province in provinces %}
+                  <option value="{{ province.id }}" {% if form.province.value == province.id|stringformat:"d" %}selected{% endif %}>{{ province.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.province.errors %}
+                <div class="invalid-feedback">{{ form.province.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">شهر <span class="text-danger">*</span></label>
+                <select name="city" class="form-select {% if form.city.errors %}is-invalid{% endif %}" id="citySelect" required>
+                  <option value="">انتخاب شهر</option>
+                  {% for city in cities %}
+                  <option value="{{ city.id }}" {% if form.city.value == city.id|stringformat:"d" %}selected{% endif %}>{{ city.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if form.city.errors %}
+                <div class="invalid-feedback">{{ form.city.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold">آدرس <span class="text-danger">*</span></label>
+                <textarea name="address" class="form-control {% if form.address.errors %}is-invalid{% endif %}" rows="3" placeholder="آدرس کامل شامل خیابان، کوچه و پلاک" required>{{ form.address.value|default:'' }}</textarea>
+                {% if form.address.errors %}
+                <div class="invalid-feedback">{{ form.address.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">کد پستی <span class="text-danger">*</span></label>
+                <input type="text" name="postal_code" class="form-control {% if form.postal_code.errors %}is-invalid{% endif %}" value="{{ form.postal_code.value|default:'' }}" placeholder="کد پستی ده رقمی" dir="ltr" maxlength="10" pattern="[0-9]{10}" required>
+                {% if form.postal_code.errors %}
+                <div class="invalid-feedback">{{ form.postal_code.errors.0 }}</div>
+                {% endif %}
+                <div class="form-text">کد پستی باید ۱۰ رقم باشد.</div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button type="submit" class="btn btn-primary btn-lg w-100">
+                <i class="bi bi-check-circle me-1"></i> ذخیره و ادامه
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

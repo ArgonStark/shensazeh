@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}فاکتور #{{ invoice.number }} | شن‌سازه{% endblock %}
+
+{% block extra_css %}
+<style>
+  @media print {
+    .navbar, footer, .no-print, .btn { display: none !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    body { background: white; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <h2 class="fw-bold"><i class="bi bi-receipt me-2"></i>فاکتور #{{ invoice.number }}</h2>
+    <div class="d-flex gap-2">
+      <button onclick="window.print()" class="btn btn-outline-primary">
+        <i class="bi bi-printer me-1"></i> چاپ
+      </button>
+      <a href="{% url 'orders:invoice_pdf' invoice.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-file-pdf me-1"></i> دانلود PDF
+      </a>
+      <a href="{% url 'orders:invoice_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right me-1"></i> بازگشت
+      </a>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <!-- Header -->
+      <div class="row mb-4 pb-4 border-bottom">
+        <div class="col-6">
+          <h3 class="fw-bold text-primary">شن‌سازه</h3>
+          <p class="text-muted mb-1">فروشگاه ابزار و مصالح ساختمانی</p>
+          <p class="text-muted mb-1">تهران، خیابان ولیعصر</p>
+          <p class="text-muted mb-0">تلفن: ۰۲۱-۱۲۳۴۵۶۷۸</p>
+        </div>
+        <div class="col-6 text-start">
+          <h4 class="fw-bold">فاکتور فروش</h4>
+          <table class="table table-borderless table-sm mb-0">
+            <tr>
+              <td class="text-muted">شماره فاکتور:</td>
+              <td class="fw-bold">#{{ invoice.number }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">تاریخ:</td>
+              <td>{{ invoice.jalali_date }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">وضعیت:</td>
+              <td>
+                {% if invoice.status == 'paid' %}
+                <span class="badge bg-success">پرداخت شده</span>
+                {% elif invoice.status == 'issued' %}
+                <span class="badge bg-primary">صادر شده</span>
+                {% elif invoice.status == 'draft' %}
+                <span class="badge bg-secondary">پیش‌نویس</span>
+                {% else %}
+                <span class="badge bg-danger">لغو شده</span>
+                {% endif %}
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Customer Info -->
+      <div class="row mb-4 pb-3 border-bottom">
+        <div class="col-12">
+          <h6 class="fw-bold text-muted mb-2">مشخصات مشتری</h6>
+          <div class="row">
+            <div class="col-md-4">
+              <strong>نام:</strong> {{ invoice.customer_name }}
+            </div>
+            <div class="col-md-4">
+              <strong>تلفن:</strong> <span dir="ltr">{{ invoice.customer_phone|default:"---" }}</span>
+            </div>
+            <div class="col-md-4">
+              <strong>آدرس:</strong> {{ invoice.customer_address|default:"---" }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="table-responsive mb-4">
+        <table class="table table-bordered">
+          <thead class="table-light">
+            <tr>
+              <th style="width:5%">ردیف</th>
+              <th>شرح کالا/خدمات</th>
+              <th style="width:10%">تعداد</th>
+              <th style="width:12%">واحد</th>
+              <th style="width:15%">قیمت واحد (تومان)</th>
+              <th style="width:15%">مبلغ کل (تومان)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in invoice.items.all %}
+            <tr>
+              <td class="text-center">{{ forloop.counter }}</td>
+              <td>{{ item.description|default:item.product.name }}</td>
+              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-center">{{ item.unit|default:"عدد" }}</td>
+              <td>{{ item.unit_price|intcomma }}</td>
+              <td class="fw-bold">{{ item.total_price|intcomma }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totals -->
+      <div class="row justify-content-start">
+        <div class="col-md-5">
+          <table class="table table-borderless">
+            <tr>
+              <td class="text-muted">جمع کل:</td>
+              <td class="fw-bold">{{ invoice.subtotal|intcomma }} تومان</td>
+            </tr>
+            {% if invoice.discount %}
+            <tr>
+              <td class="text-muted">تخفیف:</td>
+              <td class="text-danger">{{ invoice.discount|intcomma }}- تومان</td>
+            </tr>
+            {% endif %}
+            {% if invoice.tax_amount %}
+            <tr>
+              <td class="text-muted">مالیات ({{ invoice.tax_percent }}%):</td>
+              <td>{{ invoice.tax_amount|intcomma }} تومان</td>
+            </tr>
+            {% endif %}
+            <tr class="border-top">
+              <td class="fw-bold fs-5">مبلغ قابل پرداخت:</td>
+              <td class="fw-bold fs-5 text-primary">{{ invoice.total_amount|intcomma }} تومان</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      {% if invoice.notes %}
+      <div class="mt-3 p-3 bg-light rounded">
+        <strong>توضیحات:</strong> {{ invoice.notes }}
+      </div>
+      {% endif %}
+
+      <!-- Signatures -->
+      <div class="row mt-5 pt-4 border-top">
+        <div class="col-6 text-center">
+          <div class="border-bottom border-dark pb-5 mb-2 mx-5"></div>
+          <strong>مهر و امضای فروشنده</strong>
+        </div>
+        <div class="col-6 text-center">
+          <div class="border-bottom border-dark pb-5 mb-2 mx-5"></div>
+          <strong>امضای خریدار</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

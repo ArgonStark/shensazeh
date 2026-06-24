@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}اطلاعیه‌ها | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item active">اطلاعیه‌ها</li>
+    </ol>
+  </nav>
+
+  <h1 class="fw-bold mb-4"><i class="bi bi-megaphone me-2 text-warning"></i>اطلاعیه‌ها</h1>
+
+  {% for announcement in announcements %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h5 class="fw-bold mb-2">{{ announcement.title }}</h5>
+          <p class="text-muted mb-2">{{ announcement.content }}</p>
+          <small class="text-muted">
+            <i class="bi bi-calendar3 me-1"></i>{{ announcement.jalali_date }}
+            {% if announcement.is_important %}
+            <span class="badge bg-danger ms-2">مهم</span>
+            {% endif %}
+          </small>
+        </div>
+        {% if announcement.is_important %}
+        <i class="bi bi-exclamation-circle-fill fs-3 text-danger"></i>
+        {% else %}
+        <i class="bi bi-info-circle fs-3 text-primary"></i>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center py-5">
+    <i class="bi bi-megaphone fs-1 text-muted d-block mb-3"></i>
+    <h5 class="text-muted">اطلاعیه‌ای موجود نیست.</h5>
+  </div>
+  {% endfor %}
+
+  {% if is_paginated %}
+  <nav class="mt-4">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">قبلی</a></li>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">بعدی</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

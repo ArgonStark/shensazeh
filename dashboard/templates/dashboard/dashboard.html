@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}داشبورد مدیریت | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="bi bi-speedometer2 me-2"></i>داشبورد مدیریت</h2>
+    <span class="text-muted">{{ user.get_full_name|default:user.phone }}</span>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="card border-0 shadow-sm border-start border-4 border-primary">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted small mb-1">فروش کل</div>
+              <h4 class="fw-bold mb-0">{{ total_sales|intcomma }}</h4>
+              <small class="text-muted">تومان</small>
+            </div>
+            <i class="bi bi-currency-exchange fs-1 text-primary opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card border-0 shadow-sm border-start border-4 border-success">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted small mb-1">ارزش انبار</div>
+              <h4 class="fw-bold mb-0">{{ inventory_value|intcomma }}</h4>
+              <small class="text-muted">تومان</small>
+            </div>
+            <i class="bi bi-boxes fs-1 text-success opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card border-0 shadow-sm border-start border-4 border-warning">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted small mb-1">سفارشات</div>
+              <h4 class="fw-bold mb-0">{{ orders_count|intcomma }}</h4>
+              <small class="text-muted">سفارش</small>
+            </div>
+            <i class="bi bi-bag fs-1 text-warning opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card border-0 shadow-sm border-start border-4 border-danger">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="text-muted small mb-1">مشتریان</div>
+              <h4 class="fw-bold mb-0">{{ customers_count|intcomma }}</h4>
+              <small class="text-muted">نفر</small>
+            </div>
+            <i class="bi bi-people fs-1 text-danger opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Recent Invoices -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-receipt me-2"></i>آخرین فاکتورها</h5>
+            <a href="{% url 'orders:invoice_list' %}" class="btn btn-outline-primary btn-sm">مشاهده همه</a>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>شماره</th>
+                  <th>مشتری</th>
+                  <th>مبلغ</th>
+                  <th>وضعیت</th>
+                  <th>تاریخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for invoice in recent_invoices %}
+                <tr>
+                  <td><a href="{% url 'orders:invoice_detail' invoice.id %}">#{{ invoice.number }}</a></td>
+                  <td>{{ invoice.customer_name }}</td>
+                  <td class="fw-bold">{{ invoice.total_amount|intcomma }}</td>
+                  <td>
+                    {% if invoice.status == 'paid' %}
+                    <span class="badge bg-success-subtle text-success">پرداخت شده</span>
+                    {% elif invoice.status == 'issued' %}
+                    <span class="badge bg-primary-subtle text-primary">صادر شده</span>
+                    {% else %}
+                    <span class="badge bg-secondary-subtle text-secondary">پیش‌نویس</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-muted small">{{ invoice.jalali_date }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center text-muted py-3">فاکتوری ثبت نشده.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Placeholder -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3"><i class="bi bi-graph-up me-2"></i>نمودار فروش</h5>
+          <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height:300px;">
+            <div class="text-center text-muted">
+              <i class="bi bi-bar-chart-line fs-1 d-block mb-2"></i>
+              <p>نمودار فروش ماهانه</p>
+              <small>برای نمایش نمودار، کتابخانه Chart.js را اضافه کنید</small>
+            </div>
+          </div>
+          <canvas id="salesChart" class="d-none"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <!-- Quick Links -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3"><i class="bi bi-lightning me-2"></i>دسترسی سریع</h5>
+          <div class="d-grid gap-2">
+            <a href="{% url 'orders:invoice_create' %}" class="btn btn-outline-primary text-start">
+              <i class="bi bi-plus-circle me-2"></i>فاکتور جدید
+            </a>
+            <a href="{% url 'inventory:inventory_create' %}" class="btn btn-outline-success text-start">
+              <i class="bi bi-box-seam me-2"></i>ثبت ورود/خروج انبار
+            </a>
+            <a href="{% url 'inventory:inventory_dashboard' %}" class="btn btn-outline-warning text-start">
+              <i class="bi bi-graph-up me-2"></i>داشبورد انبار
+            </a>
+            <a href="{% url 'accounts:staff_list' %}" class="btn btn-outline-secondary text-start">
+              <i class="bi bi-people me-2"></i>مدیریت کارکنان
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Low Stock Alerts -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle text-warning me-2"></i>هشدار موجودی</h5>
+          {% for product in low_stock_products %}
+          <div class="d-flex justify-content-between align-items-center py-2 {% if not forloop.last %}border-bottom{% endif %}">
+            <span class="small">{{ product.name }}</span>
+            <span class="badge bg-{% if product.stock == 0 %}danger{% else %}warning text-dark{% endif %}">
+              {{ product.stock }} عدد
+            </span>
+          </div>
+          {% empty %}
+          <div class="text-center text-muted small py-2">
+            <i class="bi bi-check-circle text-success me-1"></i>
+            وضعیت موجودی مطلوب است.
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Announcements Management -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-megaphone me-2"></i>اطلاعیه‌ها</h5>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal">
+              <i class="bi bi-plus"></i>
+            </button>
+          </div>
+          {% for announcement in announcements %}
+          <div class="py-2 {% if not forloop.last %}border-bottom{% endif %}">
+            <div class="d-flex justify-content-between">
+              <strong class="small">{{ announcement.title }}</strong>
+              <small class="text-muted">{{ announcement.jalali_date }}</small>
+            </div>
+            <p class="text-muted small mb-0">{{ announcement.content|truncatewords:10 }}</p>
+          </div>
+          {% empty %}
+          <p class="text-muted small text-center">اطلاعیه‌ای موجود نیست.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- AI Blog Writing Assistant -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3"><i class="bi bi-robot me-2 text-primary"></i>دستیار هوشمند نگارش بلاگ</h5>
+          <p class="text-muted small">با استفاده از هوش مصنوعی، مقالات تخصصی ساختمانی تولید کنید.</p>
+          <form method="post" action="{% url 'dashboard:ai_blog_generate' %}" id="aiBlogForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-bold">موضوع مقاله</label>
+              <textarea name="topic" class="form-control" rows="3" placeholder="مثال: راهنمای انتخاب سیمان مناسب برای فونداسیون..." required></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">سبک نگارش</label>
+              <select name="style" class="form-select form-select-sm">
+                <option value="educational">آموزشی</option>
+                <option value="review">بررسی محصول</option>
+                <option value="guide">راهنمای خرید</option>
+                <option value="news">خبری</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" id="aiGenerateBtn">
+              <i class="bi bi-magic me-1"></i> تولید مقاله
+            </button>
+          </form>
+          <div id="aiResult" class="mt-3 d-none">
+            <div class="alert alert-success">
+              <i class="bi bi-check-circle me-1"></i> مقاله تولید شد!
+              <a href="#" id="aiResultLink" class="alert-link">مشاهده و ویرایش</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Announcement Modal -->
+<div class="modal fade" id="announcementModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">اطلاعیه جدید</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'dashboard:announcement_create' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">عنوان</label>
+            <input type="text" name="title" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">متن اطلاعیه</label>
+            <textarea name="content" class="form-control" rows="3" required></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" name="is_important" class="form-check-input" id="isImportant">
+            <label class="form-check-label" for="isImportant">اطلاعیه مهم</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">انصراف</button>
+          <button type="submit" class="btn btn-primary">ذخیره</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

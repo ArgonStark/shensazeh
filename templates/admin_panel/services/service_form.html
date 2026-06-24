@@ -1,0 +1,83 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{% if form.instance.pk %}ویرایش خدمت{% else %}افزودن خدمت{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="{% url 'admin_panel:service_list' %}" class="hover:text-blue-600 transition">خدمات</a>
+        <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-700">{% if form.instance.pk %}ویرایش{% else %}افزودن{% endif %}</span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800">{% if form.instance.pk %}ویرایش خدمت{% else %}افزودن خدمت جدید{% endif %}</h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="max-w-2xl mx-auto">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
+            {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+        <div>
+            <label for="id_title" class="block text-sm font-medium text-gray-700 mb-1">عنوان خدمت</label>
+            <input type="text" name="title" id="id_title" value="{{ form.title.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" required>
+        </div>
+
+        <div>
+            <label for="id_slug" class="block text-sm font-medium text-gray-700 mb-1">اسلاگ (URL)</label>
+            <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
+        </div>
+
+        <div>
+            <label for="id_description" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
+            <textarea name="description" id="id_description" rows="6" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">{{ form.description.value|default_if_none:'' }}</textarea>
+        </div>
+
+        <div>
+            <label for="id_icon" class="block text-sm font-medium text-gray-700 mb-1">آیکون (کلاس CSS یا SVG)</label>
+            <input type="text" name="icon" id="id_icon" value="{{ form.icon.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr" placeholder="مثال: wrench">
+        </div>
+
+        <div>
+            <label for="id_image" class="block text-sm font-medium text-gray-700 mb-1">تصویر</label>
+            {% if form.instance.image %}
+            <div class="mb-2">
+                <img src="{{ form.instance.image.url }}" alt="" class="w-32 h-20 rounded-lg object-cover">
+            </div>
+            {% endif %}
+            <input type="file" name="image" id="id_image" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+        </div>
+
+        <div>
+            <label for="id_order" class="block text-sm font-medium text-gray-700 mb-1">ترتیب نمایش</label>
+            <input type="number" name="order" id="id_order" value="{{ form.order.value|default_if_none:'0' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0">
+        </div>
+
+        <div class="flex items-center justify-between py-2">
+            <label for="id_is_active" class="text-sm font-medium text-gray-700">فعال</label>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="is_active" id="id_is_active" class="sr-only peer" {% if form.is_active.value %}checked{% endif %}>
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+        </div>
+
+        <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
+            <button type="submit" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                {% if form.instance.pk %}ذخیره تغییرات{% else %}افزودن خدمت{% endif %}
+            </button>
+            <a href="{% url 'admin_panel:service_list' %}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}بلاگ | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item active">بلاگ</li>
+    </ol>
+  </nav>
+
+  <h1 class="fw-bold mb-4">مقالات و آموزش‌ها</h1>
+
+  <div class="row g-4">
+    {% for post in posts %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card h-100 border-0 shadow-sm hover-lift">
+        <a href="{% url 'blog:blog_detail' post.slug %}">
+          {% if post.image %}
+          <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}" style="height:200px;object-fit:cover;">
+          {% else %}
+          <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:200px;">
+            <i class="bi bi-newspaper fs-1 text-muted"></i>
+          </div>
+          {% endif %}
+        </a>
+        <div class="card-body d-flex flex-column">
+          {% if post.category %}
+          <span class="badge bg-primary-subtle text-primary mb-2 align-self-start">{{ post.category }}</span>
+          {% endif %}
+          <h5 class="card-title fw-bold">
+            <a href="{% url 'blog:blog_detail' post.slug %}" class="text-decoration-none text-dark">{{ post.title }}</a>
+          </h5>
+          <p class="card-text text-muted small">{{ post.excerpt|default:post.content|truncatewords:25 }}</p>
+          <div class="mt-auto d-flex justify-content-between align-items-center">
+            <small class="text-muted">
+              <i class="bi bi-calendar3 me-1"></i>{{ post.jalali_date }}
+            </small>
+            <small class="text-muted">
+              <i class="bi bi-chat me-1"></i>{{ post.comments_count|default:"۰" }} نظر
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+      <i class="bi bi-newspaper fs-1 text-muted d-block mb-3"></i>
+      <h5 class="text-muted">هنوز مقاله‌ای منتشر نشده است.</h5>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <nav class="mt-5">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">قبلی</a></li>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">بعدی</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

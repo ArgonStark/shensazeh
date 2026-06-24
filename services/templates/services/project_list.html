@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}پروژه‌ها | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item active">پروژه‌ها</li>
+    </ol>
+  </nav>
+
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">نمونه پروژه‌ها</h1>
+    <p class="text-muted lead">مروری بر پروژه‌های اجرا شده توسط تیم شن‌سازه</p>
+  </div>
+
+  <div class="row g-4">
+    {% for project in projects %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card h-100 border-0 shadow-sm hover-lift overflow-hidden">
+        <a href="{% url 'services:project_detail' project.slug %}">
+          {% if project.image %}
+          <img src="{{ project.image.url }}" class="card-img-top" alt="{{ project.title }}" style="height:250px;object-fit:cover;">
+          {% else %}
+          <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:250px;">
+            <i class="bi bi-building fs-1 text-muted"></i>
+          </div>
+          {% endif %}
+        </a>
+        <div class="card-body">
+          <h5 class="card-title fw-bold">
+            <a href="{% url 'services:project_detail' project.slug %}" class="text-decoration-none text-dark">{{ project.title }}</a>
+          </h5>
+          <p class="card-text text-muted small">{{ project.description|truncatewords:15 }}</p>
+          <div class="d-flex justify-content-between align-items-center">
+            {% if project.location %}
+            <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ project.location }}</small>
+            {% endif %}
+            {% if project.year %}
+            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ project.year }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+      <i class="bi bi-building fs-1 text-muted d-block mb-3"></i>
+      <h5 class="text-muted">پروژه‌ای ثبت نشده است.</h5>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <nav class="mt-5">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">قبلی</a></li>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">بعدی</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

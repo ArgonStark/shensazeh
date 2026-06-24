@@ -1,0 +1,196 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{% if form.instance.pk %}ویرایش مقاله{% else %}نوشتن مقاله{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="{% url 'admin_panel:post_list' %}" class="hover:text-blue-600 transition">مقالات</a>
+        <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-700">{% if form.instance.pk %}ویرایش{% else %}نوشتن{% endif %}</span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800">{% if form.instance.pk %}ویرایش مقاله{% else %}نوشتن مقاله جدید{% endif %}</h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" x-data="postForm()">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
+            {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {# --- Main Column --- #}
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <div>
+                    <label for="id_title" class="block text-sm font-medium text-gray-700 mb-1">عنوان</label>
+                    <input type="text" name="title" id="id_title" value="{{ form.title.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" required>
+                </div>
+
+                <div>
+                    <label for="id_slug" class="block text-sm font-medium text-gray-700 mb-1">اسلاگ (URL)</label>
+                    <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">محتوا</label>
+                    <div id="quill-editor"></div>
+                    <textarea name="content" id="id_content" class="hidden">{{ form.content.value|default_if_none:'' }}</textarea>
+                </div>
+
+                <div>
+                    <label for="id_excerpt" class="block text-sm font-medium text-gray-700 mb-1">خلاصه</label>
+                    <textarea name="excerpt" id="id_excerpt" rows="3" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="خلاصه مقاله برای نمایش در لیست...">{{ form.excerpt.value|default_if_none:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        {# --- Side Column --- #}
+        <div class="space-y-6">
+            {# Publish settings #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800">تنظیمات انتشار</h3>
+
+                <div class="flex items-center justify-between py-2">
+                    <label for="id_is_published" class="text-sm font-medium text-gray-700">منتشر شده</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="is_published" id="id_is_published" class="sr-only peer" {% if form.is_published.value %}checked{% endif %}>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 border-t border-gray-200">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+                        {% if form.instance.pk %}ذخیره{% else %}انتشار{% endif %}
+                    </button>
+                    <a href="{% url 'admin_panel:post_list' %}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</a>
+                </div>
+            </div>
+
+            {# Image #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">تصویر شاخص</h3>
+                {% if form.instance.image %}
+                <div class="mb-3">
+                    <img src="{{ form.instance.image.url }}" alt="" class="w-full h-40 rounded-lg object-cover">
+                </div>
+                {% endif %}
+                <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="text-xs text-gray-400 mt-1">{% if form.instance.image %}تغییر تصویر{% else %}انتخاب تصویر{% endif %}</span>
+                    <input type="file" name="image" accept="image/*" class="hidden" @change="previewImage($event)">
+                </label>
+                <div x-show="imagePreview" x-cloak class="mt-3">
+                    <img :src="imagePreview" class="w-full h-40 rounded-lg object-cover">
+                </div>
+            </div>
+
+            {# AI Assist #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                    دستیار هوشمند
+                </h3>
+                <button type="button" @click="aiAssistContent()" :disabled="aiLoading" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition text-sm font-medium">
+                    <svg x-show="aiLoading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span x-text="aiLoading ? 'در حال تولید...' : 'بهبود محتوا با AI'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Quill editor ──────────────────────────────────────────────
+const quill = new Quill('#quill-editor', {
+    theme: 'snow',
+    direction: 'rtl',
+    placeholder: 'محتوای مقاله را اینجا بنویسید...',
+    modules: {
+        toolbar: [
+            [{ header: [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            [{ align: [] }],
+            ['blockquote', 'code-block'],
+            ['link', 'image'],
+            ['clean'],
+        ],
+    },
+});
+
+// Load existing content
+const existingContent = document.getElementById('id_content').value;
+if (existingContent) {
+    quill.clipboard.dangerouslyPasteHTML(existingContent);
+}
+
+// Sync to hidden textarea before form submit
+document.querySelector('form').addEventListener('submit', () => {
+    document.getElementById('id_content').value = quill.getSemanticHTML();
+});
+
+// ── Alpine component ──────────────────────────────────────────
+function postForm() {
+    return {
+        imagePreview: null,
+        aiLoading: false,
+        previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => this.imagePreview = e.target.result;
+                reader.readAsDataURL(file);
+            }
+        },
+        async aiAssistContent() {
+            const title = document.getElementById('id_title').value;
+            const content = quill.getText().trim();
+            if (!title && !content) {
+                alert('لطفاً ابتدا عنوان یا محتوایی وارد کنید');
+                return;
+            }
+            this.aiLoading = true;
+            try {
+                const formData = new FormData();
+                formData.append('prompt', title || content);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                const res = await fetch("{% url 'admin_panel:ai_assist' %}", {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await res.json();
+                if (data.content) {
+                    quill.clipboard.dangerouslyPasteHTML(data.content.replace(/\n/g, '<br>'));
+                } else {
+                    alert(data.error || 'خطایی رخ داد');
+                }
+            } catch (e) {
+                alert('خطا در ارتباط با سرور');
+            } finally {
+                this.aiLoading = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}مدیریت انبار | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="bi bi-box-seam me-2"></i>تراکنش‌های انبار</h2>
+    <div class="d-flex gap-2">
+      <a href="{% url 'inventory:inventory_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i> ثبت جدید
+      </a>
+      <a href="{% url 'inventory:inventory_dashboard' %}" class="btn btn-outline-primary">
+        <i class="bi bi-graph-up me-1"></i> داشبورد انبار
+      </a>
+      <a href="{% url 'dashboard:dashboard' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right me-1"></i> داشبورد
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">محصول</label>
+          <input type="text" name="product" class="form-control" value="{{ product_filter }}" placeholder="نام محصول">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">نوع</label>
+          <select name="type" class="form-select">
+            <option value="">همه</option>
+            <option value="in" {% if type_filter == 'in' %}selected{% endif %}>ورود</option>
+            <option value="out" {% if type_filter == 'out' %}selected{% endif %}>خروج</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> فیلتر</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>محصول</th>
+              <th>نوع</th>
+              <th>تعداد</th>
+              <th>تامین‌کننده</th>
+              <th>توضیحات</th>
+              <th>تاریخ</th>
+              <th>ثبت‌کننده</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in entries %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td class="fw-bold">{{ entry.product.name }}</td>
+              <td>
+                {% if entry.type == 'in' %}
+                <span class="badge bg-success"><i class="bi bi-arrow-down-circle me-1"></i>ورود</span>
+                {% else %}
+                <span class="badge bg-danger"><i class="bi bi-arrow-up-circle me-1"></i>خروج</span>
+                {% endif %}
+              </td>
+              <td>{{ entry.quantity|intcomma }}</td>
+              <td>{{ entry.supplier|default:"---" }}</td>
+              <td class="text-muted small">{{ entry.notes|default:"---"|truncatewords:8 }}</td>
+              <td>{{ entry.jalali_date }}</td>
+              <td>{{ entry.created_by.get_full_name|default:entry.created_by.phone }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="text-center py-5 text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                تراکنشی ثبت نشده است.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <nav class="mt-4">
+    <ul class="pagination justify-content-center">
+      {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">قبلی</a></li>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+      <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+      </li>
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">بعدی</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

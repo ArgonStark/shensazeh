@@ -1,0 +1,27 @@
+{% extends 'admin_panel/base.html' %}{% load static %}
+{% block title %}{% if form.instance.pk %}ویرایش اطلاعیه{% else %}اطلاعیه جدید{% endif %}{% endblock %}
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <h1 class="text-xl font-bold text-gray-800">{% if form.instance.pk %}ویرایش اطلاعیه{% else %}اطلاعیه جدید{% endif %}</h1>
+    <a href="{% url 'admin_panel:announcement_list' %}" class="border border-gray-200 px-4 py-2 rounded-xl text-sm hover:bg-gray-50 transition">بازگشت</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+  <div class="bg-white rounded-2xl shadow-sm p-6">
+    <form method="post">{% csrf_token %}
+      {% for field in form %}
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="text-red-500 text-xs mt-1">{{ field.errors.0 }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="flex gap-3 pt-4 border-t">
+        <button type="submit" class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition">ذخیره</button>
+        <a href="{% url 'admin_panel:announcement_list' %}" class="border border-gray-200 px-6 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{% if invoice %}ویرایش فاکتور{% else %}فاکتور جدید{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="{% url 'admin_panel:invoice_list' %}" class="hover:text-blue-600 transition">فاکتورها</a>
+        <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-700">{% if invoice %}ویرایش فاکتور #{{ invoice.number }}{% else %}فاکتور جدید{% endif %}</span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800">{% if invoice %}ویرایش فاکتور{% else %}ایجاد فاکتور جدید{% endif %}</h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" x-data="invoiceForm()" class="space-y-6">
+    {% csrf_token %}
+
+    {% if form.errors %}
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+        <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
+            {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {# --- Customer Info --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">اطلاعات مشتری</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label for="id_customer_name" class="block text-sm font-medium text-gray-700 mb-1">نام مشتری</label>
+                <input type="text" name="customer_name" id="id_customer_name" value="{{ form.customer_name.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" required>
+            </div>
+            <div>
+                <label for="id_customer_mobile" class="block text-sm font-medium text-gray-700 mb-1">موبایل</label>
+                <input type="tel" name="customer_mobile" id="id_customer_mobile" value="{{ form.customer_mobile.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" dir="ltr">
+            </div>
+            <div>
+                <label for="id_customer_address" class="block text-sm font-medium text-gray-700 mb-1">آدرس</label>
+                <input type="text" name="customer_address" id="id_customer_address" value="{{ form.customer_address.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+            </div>
+        </div>
+    </div>
+
+    {# --- Line Items --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">اقلام فاکتور</h3>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 rounded-t-lg">
+                    <tr>
+                        <th class="px-3 py-2 text-right text-gray-600 font-medium">محصول</th>
+                        <th class="px-3 py-2 text-right text-gray-600 font-medium">شرح</th>
+                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-24">تعداد</th>
+                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-36">قیمت واحد</th>
+                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-36">جمع</th>
+                        <th class="px-3 py-2 w-10"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(item, index) in items" :key="index">
+                        <tr class="border-t border-gray-100">
+                            <td class="px-3 py-2">
+                                <select :name="'items-' + index + '-product'" x-model="item.product" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                    <option value="">انتخاب...</option>
+                                    {% for product in products %}
+                                    <option value="{{ product.id }}">{{ product.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td class="px-3 py-2">
+                                <input type="text" :name="'items-' + index + '-description'" x-model="item.description" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="شرح...">
+                            </td>
+                            <td class="px-3 py-2">
+                                <input type="number" :name="'items-' + index + '-quantity'" x-model.number="item.quantity" min="1" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm text-center" @input="updateTotals()">
+                            </td>
+                            <td class="px-3 py-2">
+                                <input type="number" :name="'items-' + index + '-unit_price'" x-model.number="item.unit_price" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="block text-sm font-medium text-gray-700 py-2" x-text="(item.quantity * item.unit_price).toLocaleString('fa-IR') + ' تومان'"></span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <input type="hidden" name="items_count" :value="items.length">
+
+        <button type="button" @click="addItem()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-400 hover:text-blue-600 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            افزودن ردیف
+        </button>
+    </div>
+
+    {# --- Totals --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="max-w-md mr-auto space-y-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">جمع کل:</span>
+                <span class="font-medium text-gray-800" x-text="subtotal.toLocaleString('fa-IR') + ' تومان'"></span>
+            </div>
+            <div class="flex items-center justify-between text-sm gap-4">
+                <span class="text-gray-600">تخفیف (تومان):</span>
+                <input type="number" name="discount" x-model.number="discount" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
+            </div>
+            <div class="flex items-center justify-between text-sm gap-4">
+                <span class="text-gray-600">مالیات (تومان):</span>
+                <input type="number" name="tax" x-model.number="tax" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
+            </div>
+            <div class="flex items-center justify-between text-base pt-3 border-t border-gray-200">
+                <span class="font-semibold text-gray-800">مبلغ نهایی:</span>
+                <span class="font-bold text-lg text-blue-600" x-text="grandTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+            </div>
+        </div>
+    </div>
+
+    {# --- Notes --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <label for="id_notes" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
+        <textarea name="notes" id="id_notes" rows="3" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="توضیحات فاکتور (اختیاری)...">{{ form.notes.value|default_if_none:'' }}</textarea>
+    </div>
+
+    {# --- Actions --- #}
+    <div class="flex items-center gap-3">
+        <button type="submit" class="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
+            {% if invoice %}ذخیره تغییرات{% else %}ایجاد فاکتور{% endif %}
+        </button>
+        <a href="{% url 'admin_panel:invoice_list' %}" class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function invoiceForm() {
+    return {
+        items: [{ product: '', description: '', quantity: 1, unit_price: 0 }],
+        discount: {{ form.discount.value|default:0 }},
+        tax: {{ form.tax.value|default:0 }},
+        subtotal: 0,
+        grandTotal: 0,
+
+        init() {
+            {% if invoice_items %}
+            this.items = [
+                {% for item in invoice_items %}
+                { product: '{{ item.product_id }}', description: '{{ item.description|escapejs }}', quantity: {{ item.quantity }}, unit_price: {{ item.unit_price }} },
+                {% endfor %}
+            ];
+            {% endif %}
+            this.updateTotals();
+        },
+
+        addItem() {
+            this.items.push({ product: '', description: '', quantity: 1, unit_price: 0 });
+        },
+
+        removeItem(index) {
+            if (this.items.length > 1) {
+                this.items.splice(index, 1);
+                this.updateTotals();
+            }
+        },
+
+        updateTotals() {
+            this.subtotal = this.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+            this.grandTotal = this.subtotal - (this.discount || 0) + (this.tax || 0);
+            if (this.grandTotal < 0) this.grandTotal = 0;
+        }
+    }
+}
+</script>
+{% endblock %}

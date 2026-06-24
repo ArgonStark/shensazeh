@@ -1,0 +1,358 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}داشبورد{% endblock %}
+
+{% block page_header %}
+<div class="bg-gradient-to-l from-blue-600 to-indigo-700 px-6 py-8 text-white">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-2xl font-bold">سلام {{ request.user.get_full_name|default:request.user.mobile }} 👋</h1>
+            <p class="text-blue-100 mt-1 text-sm">خلاصه‌ای از وضعیت امروز فروشگاه شن‌سازه</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'admin_panel:invoice_create' %}" class="px-4 py-2.5 text-sm font-medium bg-white/15 hover:bg-white/25 rounded-lg transition backdrop-blur">+ فاکتور جدید</a>
+            <a href="{% url 'admin_panel:product_create' %}" class="px-4 py-2.5 text-sm font-medium bg-white text-blue-700 hover:bg-blue-50 rounded-lg transition">+ افزودن محصول</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboardData()" x-init="init()">
+
+    {# --- Stats Row --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {# فروش کل #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-blue-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">فروش کل</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ total_sales|intcomma }} <span class="text-sm font-normal text-gray-400">تومان</span></p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        {# موجودی #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">محصولات فعال</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ total_products|intcomma }}</p>
+                    {% if out_of_stock %}<p class="text-xs text-red-500 mt-1">{{ out_of_stock }} مورد ناموجود</p>{% endif %}
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        {# سفارشات #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">سفارشات</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ order_count|intcomma }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ invoice_count|intcomma }} فاکتور</p>
+                </div>
+                <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        {# بازدیدها #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-indigo-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">بازدید امروز</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">{{ today_visits|intcomma }}</p>
+                    <p class="text-xs text-gray-400 mt-1">{{ total_visits|intcomma }} کل بازدید</p>
+                </div>
+                <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Charts Row --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+        <div class="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">فروش ۳۰ روز اخیر</h3>
+            <canvas id="salesChart" height="120"></canvas>
+        </div>
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">محصولات بر اساس دسته‌بندی</h3>
+            <canvas id="categoryChart" height="200"></canvas>
+        </div>
+    </div>
+
+    {# --- Tables Row --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {# آخرین فاکتورها #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">آخرین فاکتورها</h3>
+                <a href="{% url 'admin_panel:invoice_list' %}" class="text-sm text-blue-600 hover:text-blue-800">مشاهده همه</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">شماره</th>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">مشتری</th>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">مبلغ</th>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for invoice in recent_invoices %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 font-mono text-gray-700"><a href="{% url 'admin_panel:invoice_detail' invoice.pk %}" class="text-blue-600 hover:underline">{{ invoice.invoice_number }}</a></td>
+                            <td class="px-4 py-3 text-gray-700">{{ invoice.customer_name }}</td>
+                            <td class="px-4 py-3 text-gray-700">{{ invoice.total|intcomma }} تومان</td>
+                            <td class="px-4 py-3">
+                                {% if invoice.is_paid %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">پرداخت شده</span>
+                                {% else %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">در انتظار</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-4 py-8 text-center text-gray-400">فاکتوری ثبت نشده است</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# کم‌موجودترین محصولات #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">کم‌موجودترین محصولات</h3>
+                <a href="{% url 'admin_panel:inventory_report' %}" class="text-sm text-blue-600 hover:text-blue-800">گزارش کامل</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">محصول</th>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">دسته‌بندی</th>
+                            <th class="px-4 py-3 text-right text-gray-600 font-medium">موجودی</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for product in low_stock_products %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-gray-700"><a href="{% url 'admin_panel:product_edit' product.pk %}" class="hover:text-blue-600">{{ product.name }}</a></td>
+                            <td class="px-4 py-3 text-gray-500">{{ product.category.name }}</td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {% if product.stock == 0 %}bg-red-100 text-red-700{% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                                    {{ product.stock }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="px-4 py-8 text-center text-gray-400">همه محصولات موجودی کافی دارند</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# --- Quick Actions --- #}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <a href="{% url 'admin_panel:invoice_create' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition flex flex-col items-center gap-2 group">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-700">فاکتور جدید</span>
+        </a>
+        <a href="{% url 'admin_panel:inventory_create' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-green-300 transition flex flex-col items-center gap-2 group">
+            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-700">ورود کالا</span>
+        </a>
+        <a href="{% url 'admin_panel:product_create' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-purple-300 transition flex flex-col items-center gap-2 group">
+            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-700">افزودن محصول</span>
+        </a>
+        <a href="{% url 'admin_panel:post_create' %}" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-orange-300 transition flex flex-col items-center gap-2 group">
+            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition">
+                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-700">نوشتن مقاله</span>
+        </a>
+    </div>
+
+    {# --- AI Blog Assist --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" x-data="aiAssist()">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            دستیار هوش مصنوعی بلاگ
+        </h3>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">موضوع مقاله</label>
+                <textarea x-model="topic" rows="3" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="مثلاً: راهنمای انتخاب دریل برقی مناسب..."></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">سبک نوشتاری</label>
+                <select x-model="style" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                    <option value="formal">رسمی و حرفه‌ای</option>
+                    <option value="informal">غیررسمی و صمیمی</option>
+                    <option value="technical">فنی و تخصصی</option>
+                </select>
+            </div>
+            <button @click="generate()" :disabled="loading || !topic.trim()" class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium">
+                <svg x-show="loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span x-text="loading ? 'در حال تولید...' : 'تولید محتوا'"></span>
+            </button>
+            <div x-show="result" x-cloak class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-medium text-gray-700">نتیجه:</h4>
+                    <button @click="copyResult()" class="text-xs text-blue-600 hover:text-blue-800">کپی</button>
+                </div>
+                <div x-html="result" class="prose prose-sm max-w-none text-gray-700 leading-7"></div>
+            </div>
+            <div x-show="error" x-cloak class="mt-4 p-4 bg-red-50 rounded-lg border border-red-200 text-sm text-red-600" x-text="error"></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function dashboardData() {
+    return {
+        init() {
+            this.initSalesChart();
+            this.initCategoryChart();
+        },
+        initSalesChart() {
+            const ctx = document.getElementById('salesChart');
+            if (!ctx) return;
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {{ sales_labels|safe|default:"[]" }},
+                    datasets: [{
+                        label: 'فروش (تومان)',
+                        data: {{ sales_values|safe|default:"[]" }},
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#3b82f6',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('fa-IR') } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        },
+        initCategoryChart() {
+            const ctx = document.getElementById('categoryChart');
+            if (!ctx) return;
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ cat_labels|safe|default:"[]" }},
+                    datasets: [{
+                        data: {{ cat_values|safe|default:"[]" }},
+                        backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Vazirmatn' }, padding: 12 } }
+                    }
+                }
+            });
+        }
+    }
+}
+
+function aiAssist() {
+    return {
+        topic: '',
+        style: 'formal',
+        loading: false,
+        result: '',
+        error: '',
+        async generate() {
+            this.loading = true;
+            this.result = '';
+            this.error = '';
+            try {
+                const body = new URLSearchParams({ prompt: this.topic, style: this.style });
+                const res = await fetch("{% url 'admin_panel:ai_assist' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                    body: body
+                });
+                const data = await res.json();
+                if (data.content) {
+                    this.result = data.content.replace(/\n/g, '<br>');
+                } else {
+                    this.error = data.error || 'خطایی رخ داد';
+                }
+            } catch (e) {
+                this.error = 'خطا در ارتباط با سرور';
+            } finally {
+                this.loading = false;
+            }
+        },
+        copyResult() {
+            const temp = document.createElement('div');
+            temp.innerHTML = this.result;
+            navigator.clipboard.writeText(temp.textContent || temp.innerText);
+        }
+    }
+}
+</script>
+{% endblock %}

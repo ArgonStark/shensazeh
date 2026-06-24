@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ product.name }} | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'store:category_list' %}">فروشگاه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'store:category_detail' product.category.slug %}">{{ product.category.name }}</a></li>
+      <li class="breadcrumb-item active">{{ product.name|truncatechars:30 }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <!-- Image Gallery (Swiper) -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-soft">
+        <div class="card-body p-3">
+          <div class="swiper productSwiper rounded-3 overflow-hidden" style="background:#f1f5f9">
+            <div class="swiper-wrapper">
+              {% for image in product_images %}
+              <div class="swiper-slide">
+                <img src="{{ image.image.url }}" class="w-100" style="height:400px;object-fit:contain;cursor:zoom-in" alt="{{ product.name }}"
+                     data-bs-toggle="modal" data-bs-target="#imageModal" data-img="{{ image.image.url }}">
+              </div>
+              {% empty %}
+              <div class="swiper-slide">
+                <img src="https://images.unsplash.com/photo-1581244277943-fe4a9c777189?auto=format&fit=crop&w=700&q=80" class="w-100" style="height:400px;object-fit:cover" alt="{{ product.name }}">
+              </div>
+              {% endfor %}
+            </div>
+            {% if product_images|length > 1 %}
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+            <div class="swiper-pagination"></div>
+            {% endif %}
+          </div>
+
+          {% if product_images|length > 1 %}
+          <div class="d-flex gap-2 mt-3 overflow-auto pb-2">
+            {% for image in product_images %}
+            <img src="{{ image.image.url }}" class="rounded gallery-thumb" data-slide="{{ forloop.counter0 }}"
+                 style="width:70px;height:70px;object-fit:cover;cursor:pointer" alt="تصویر {{ forloop.counter }}">
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Info -->
+    <div class="col-lg-7">
+      <h1 class="fw-bold mb-3">{{ product.name }}</h1>
+
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <span class="badge bg-brand-soft text-brand">{{ product.category.name }}</span>
+        {% if product.barcode %}
+        <span class="badge bg-light text-muted">بارکد: <span dir="ltr">{{ product.barcode }}</span></span>
+        {% endif %}
+        {% if product.is_available %}
+        <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>موجود در انبار</span>
+        {% else %}
+        <span class="badge bg-danger-subtle text-danger"><i class="bi bi-x-circle me-1"></i>ناموجود</span>
+        {% endif %}
+      </div>
+
+      <!-- Price -->
+      <div class="card border-0 bg-brand-soft p-4 mb-4">
+        {% if product.is_available %}
+        <div class="d-flex align-items-center gap-2">
+          <span class="display-6 fw-bold text-brand">{{ product.price|intcomma }}</span>
+          <span class="text-muted fs-5">تومان</span>
+        </div>
+        <small class="text-success mt-1"><i class="bi bi-box-seam me-1"></i>{{ product.stock }} عدد موجود در انبار</small>
+        {% else %}
+        <span class="text-danger fw-bold fs-5"><i class="bi bi-exclamation-circle me-1"></i>این محصول فعلاً موجود نیست</span>
+        <small class="text-muted mt-1">برای اطلاع از موجودی با ما تماس بگیرید.</small>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-2 mb-4">
+        <a href="tel:02112345678" class="btn btn-primary btn-lg px-4"><i class="bi bi-telephone me-1"></i> سفارش تلفنی</a>
+        <a href="{% url 'services:service_list' %}" class="btn btn-outline-primary btn-lg"><i class="bi bi-chat-dots me-1"></i> مشاوره</a>
+      </div>
+
+      <!-- Description -->
+      {% if product.description %}
+      <div class="mb-4">
+        <h5 class="fw-bold mb-2">توضیحات محصول</h5>
+        <p class="text-muted">{{ product.description|linebreaksbr }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Specs -->
+      {% if specs %}
+      <div class="mb-2">
+        <h5 class="fw-bold mb-3">مشخصات فنی</h5>
+        <table class="table table-bordered align-middle">
+          <tbody>
+            {% for spec in specs %}
+            <tr>
+              <th class="bg-light" style="width:35%">{{ spec.key }}</th>
+              <td>{{ spec.value }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div class="row mt-5">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-soft">
+        <div class="card-body p-4">
+          <h4 class="fw-bold mb-4"><i class="bi bi-chat-dots me-2 text-brand"></i>نظرات کاربران ({{ reviews.count }})</h4>
+
+          {% if user.is_authenticated %}
+          <form method="post" action="{% url 'store:product_review_create' product.slug %}" class="mb-4 p-3 bg-light rounded-3">
+            {% csrf_token %}
+            <h6 class="fw-bold mb-3">ثبت نظر جدید</h6>
+            <div class="mb-3">
+              <label class="form-label">امتیاز شما</label>
+              <div class="d-flex gap-1 fs-4" id="ratingStars">
+                {% for i in "12345" %}
+                <i class="bi bi-star text-warning rating-star" data-rating="{{ forloop.counter }}" style="cursor:pointer"></i>
+                {% endfor %}
+              </div>
+              <input type="hidden" name="rating" id="ratingInput" value="5">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="reviewText">متن نظر</label>
+              <textarea name="text" id="reviewText" class="form-control" rows="3" placeholder="تجربه خود از این محصول را بنویسید..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1"></i> ارسال نظر</button>
+          </form>
+          {% else %}
+          <div class="alert alert-info">برای ثبت نظر ابتدا <a href="{% url 'accounts:login' %}" class="fw-bold">وارد شوید</a>.</div>
+          {% endif %}
+
+          {% for review in reviews %}
+          <div class="border-bottom py-3 {% if forloop.last %}border-0{% endif %}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <strong>{{ review.user.get_full_name|default:review.user.mobile }}</strong>
+                <div class="text-warning small">
+                  {% for i in "12345" %}
+                  <i class="bi bi-star{% if forloop.counter <= review.rating %}-fill{% endif %}"></i>
+                  {% endfor %}
+                </div>
+              </div>
+              <small class="text-muted">{{ review.created_at }}</small>
+            </div>
+            <p class="mb-0 text-muted">{{ review.text }}</p>
+          </div>
+          {% empty %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-chat fs-1 d-block mb-2"></i>
+            هنوز نظری ثبت نشده است. اولین نفر باشید!
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Related products -->
+  {% if related_products %}
+  <div class="mt-5">
+    <h4 class="fw-bold section-title mb-4">محصولات مرتبط</h4>
+    <div class="row g-4">
+      {% for product in related_products %}
+      <div class="col-6 col-md-3">
+        {% include "partials/_product_card.html" %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Image zoom modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content border-0 bg-transparent">
+      <div class="modal-body p-0 text-center">
+        <img src="" id="zoomImage" class="img-fluid rounded" alt="تصویر بزرگ">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Swiper gallery
+  const swiper = new Swiper('.productSwiper', {
+    loop: false,
+    pagination: { el: '.swiper-pagination', clickable: true },
+    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+  });
+  document.querySelectorAll('.gallery-thumb').forEach(t => {
+    t.addEventListener('click', () => swiper.slideTo(parseInt(t.dataset.slide)));
+  });
+
+  // Rating stars
+  document.querySelectorAll('.rating-star').forEach(star => {
+    star.addEventListener('click', function () {
+      const rating = parseInt(this.dataset.rating);
+      document.getElementById('ratingInput').value = rating;
+      document.querySelectorAll('.rating-star').forEach((s, i) => {
+        s.classList.toggle('bi-star-fill', i < rating);
+        s.classList.toggle('bi-star', i >= rating);
+      });
+    });
+  });
+
+  // Zoom modal
+  document.querySelectorAll('[data-img]').forEach(img => {
+    img.addEventListener('click', function () {
+      document.getElementById('zoomImage').src = this.dataset.img;
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}پروفایل | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">پروفایل کاربری</h2>
+        <a href="{% url 'orders:order_list' %}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-bag me-1"></i> سفارشات من
+        </a>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+          <form method="post" action="{% url 'accounts:profile' %}">
+            {% csrf_token %}
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">نام</label>
+                <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}" placeholder="نام">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">نام خانوادگی</label>
+                <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}" placeholder="نام خانوادگی">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">شماره موبایل</label>
+                <input type="text" class="form-control" value="{{ user.phone }}" dir="ltr" disabled>
+                <div class="form-text">شماره موبایل قابل تغییر نیست.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">ایمیل</label>
+                <input type="email" name="email" class="form-control" value="{{ user.email }}" dir="ltr" placeholder="example@email.com">
+              </div>
+
+              <hr class="my-3">
+
+              <div class="col-md-6">
+                <label class="form-label fw-bold">استان</label>
+                <select name="province" class="form-select" id="provinceSelect">
+                  <option value="">انتخاب استان</option>
+                  {% for province in provinces %}
+                  <option value="{{ province.id }}" {% if user.profile.province_id == province.id %}selected{% endif %}>{{ province.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">شهر</label>
+                <select name="city" class="form-select" id="citySelect">
+                  <option value="">انتخاب شهر</option>
+                  {% for city in cities %}
+                  <option value="{{ city.id }}" {% if user.profile.city_id == city.id %}selected{% endif %}>{{ city.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold">آدرس</label>
+                <textarea name="address" class="form-control" rows="2" placeholder="آدرس کامل">{{ user.profile.address }}</textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">کد پستی</label>
+                <input type="text" name="postal_code" class="form-control" value="{{ user.profile.postal_code }}" placeholder="کد پستی ده رقمی" dir="ltr" maxlength="10">
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-check-circle me-1"></i> ذخیره تغییرات
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

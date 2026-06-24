@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}سفارش #{{ order.id }} | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'store:home' %}">خانه</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'orders:order_list' %}">سفارشات</a></li>
+      <li class="breadcrumb-item active">سفارش #{{ order.id }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <!-- Order Info -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3">اطلاعات سفارش</h5>
+          <table class="table table-borderless table-sm">
+            <tr>
+              <td class="text-muted">شماره سفارش:</td>
+              <td class="fw-bold">#{{ order.id }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">تاریخ ثبت:</td>
+              <td>{{ order.jalali_date }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">وضعیت:</td>
+              <td>
+                {% if order.status == 'pending' %}
+                <span class="badge bg-warning-subtle text-warning">در انتظار</span>
+                {% elif order.status == 'processing' %}
+                <span class="badge bg-info-subtle text-info">در حال پردازش</span>
+                {% elif order.status == 'shipped' %}
+                <span class="badge bg-primary-subtle text-primary">ارسال شده</span>
+                {% elif order.status == 'delivered' %}
+                <span class="badge bg-success-subtle text-success">تحویل شده</span>
+                {% elif order.status == 'cancelled' %}
+                <span class="badge bg-danger-subtle text-danger">لغو شده</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td class="text-muted">مبلغ کل:</td>
+              <td class="fw-bold text-primary">{{ order.total_amount|intcomma }} تومان</td>
+            </tr>
+          </table>
+
+          {% if order.shipping_address %}
+          <hr>
+          <h6 class="fw-bold mb-2">آدرس ارسال</h6>
+          <p class="text-muted small mb-0">{{ order.shipping_address }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <div class="p-3 border-bottom">
+            <h5 class="fw-bold mb-0">اقلام سفارش</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>محصول</th>
+                  <th>قیمت واحد</th>
+                  <th>تعداد</th>
+                  <th>مبلغ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      {% if item.product.image %}
+                      <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="rounded" style="width:50px;height:50px;object-fit:cover;">
+                      {% endif %}
+                      <span class="fw-bold">{{ item.product.name }}</span>
+                    </div>
+                  </td>
+                  <td>{{ item.unit_price|intcomma }} تومان</td>
+                  <td>{{ item.quantity }}</td>
+                  <td class="fw-bold">{{ item.total_price|intcomma }} تومان</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot class="table-light">
+                {% if order.discount %}
+                <tr>
+                  <td colspan="3" class="text-start fw-bold">تخفیف:</td>
+                  <td class="text-danger fw-bold">{{ order.discount|intcomma }}- تومان</td>
+                </tr>
+                {% endif %}
+                <tr>
+                  <td colspan="3" class="text-start fw-bold">مبلغ نهایی:</td>
+                  <td class="fw-bold text-primary fs-5">{{ order.total_amount|intcomma }} تومان</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

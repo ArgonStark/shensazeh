@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}داشبورد انبار | شن‌سازه{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold"><i class="bi bi-graph-up me-2"></i>داشبورد انبار</h2>
+    <div class="d-flex gap-2">
+      <a href="{% url 'inventory:inventory_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle me-1"></i> ثبت تراکنش
+      </a>
+      <a href="{% url 'inventory:inventory_list' %}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-list me-1"></i> تراکنش‌ها
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3">
+        <i class="bi bi-box-seam fs-2 text-primary mb-2"></i>
+        <h4 class="fw-bold mb-0">{{ total_products|intcomma }}</h4>
+        <small class="text-muted">کل محصولات</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3">
+        <i class="bi bi-boxes fs-2 text-success mb-2"></i>
+        <h4 class="fw-bold mb-0">{{ total_stock|intcomma }}</h4>
+        <small class="text-muted">کل موجودی</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3">
+        <i class="bi bi-exclamation-triangle fs-2 text-warning mb-2"></i>
+        <h4 class="fw-bold mb-0">{{ low_stock_count|intcomma }}</h4>
+        <small class="text-muted">کمبود موجودی</small>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm text-center p-3">
+        <i class="bi bi-x-circle fs-2 text-danger mb-2"></i>
+        <h4 class="fw-bold mb-0">{{ out_of_stock_count|intcomma }}</h4>
+        <small class="text-muted">ناموجود</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Low Stock Alerts -->
+  {% if low_stock_products %}
+  <div class="alert alert-warning d-flex align-items-center mb-4">
+    <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+    <div>
+      <strong>هشدار کمبود موجودی!</strong>
+      {{ low_stock_products|length }} محصول موجودی کمتر از حد مجاز دارند.
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Stock Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0">وضعیت موجودی محصولات</h5>
+        <form method="get" class="d-flex gap-2">
+          <input type="text" name="search" class="form-control form-control-sm" value="{{ search }}" placeholder="جستجوی محصول...">
+          <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>محصول</th>
+              <th>دسته‌بندی</th>
+              <th>موجودی فعلی</th>
+              <th>حداقل موجودی</th>
+              <th>وضعیت</th>
+              <th>ارزش انبار</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+            <tr class="{% if product.stock == 0 %}table-danger{% elif product.stock <= product.min_stock %}table-warning{% endif %}">
+              <td>{{ forloop.counter }}</td>
+              <td class="fw-bold">{{ product.name }}</td>
+              <td>{{ product.category.name }}</td>
+              <td class="fw-bold">{{ product.stock|intcomma }}</td>
+              <td>{{ product.min_stock|intcomma }}</td>
+              <td>
+                {% if product.stock == 0 %}
+                <span class="badge bg-danger">ناموجود</span>
+                {% elif product.stock <= product.min_stock %}
+                <span class="badge bg-warning text-dark">کمبود</span>
+                {% else %}
+                <span class="badge bg-success">موجود</span>
+                {% endif %}
+              </td>
+              <td>{{ product.inventory_value|intcomma }} تومان</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center py-5 text-muted">محصولی ثبت نشده است.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
