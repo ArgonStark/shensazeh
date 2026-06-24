@@ -20,15 +20,19 @@ class VisitTrackingMiddleware:
         ):
             return response
 
-        # Only track successful page views
+        # Only track successful page views. Never let tracking break a request
+        # (e.g. read-only DB on serverless hosts).
         if response.status_code == 200:
-            ip = self._get_client_ip(request)
-            SiteVisit.objects.create(
-                ip_address=ip,
-                path=path,
-                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-                user=request.user if request.user.is_authenticated else None,
-            )
+            try:
+                ip = self._get_client_ip(request)
+                SiteVisit.objects.create(
+                    ip_address=ip,
+                    path=path,
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                    user=request.user if request.user.is_authenticated else None,
+                )
+            except Exception:
+                pass
 
         return response
 
