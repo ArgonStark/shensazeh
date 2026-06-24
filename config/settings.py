@@ -94,6 +94,16 @@ else:
         }
     }
 
+# Vercel has a read-only filesystem except /tmp. Copy the bundled SQLite DB to
+# /tmp at cold start so reads (and transient writes) work for the demo.
+if os.environ.get('VERCEL') and _db_engine == 'django.db.backends.sqlite3':
+    import shutil
+    _src_db = BASE_DIR / config('DB_NAME', default='db.sqlite3')
+    _tmp_db = '/tmp/db.sqlite3'
+    if not os.path.exists(_tmp_db) and os.path.exists(_src_db):
+        shutil.copy(_src_db, _tmp_db)
+    DATABASES['default']['NAME'] = _tmp_db
+
 AUTH_USER_MODEL = 'accounts.User'
 
 AUTH_PASSWORD_VALIDATORS = [

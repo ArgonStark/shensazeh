@@ -27,5 +27,7 @@ urlpatterns = [
     path('api/auth/', include('rest_framework.urls')),
 ]
 
-if settings.DEBUG:
+import os
+# Serve media in DEBUG, or on Vercel (read-only demo) where there's no nginx.
+if settings.DEBUG or os.environ.get('VERCEL'):
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
