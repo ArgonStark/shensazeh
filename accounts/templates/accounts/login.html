@@ -12,25 +12,35 @@
           <div class="text-center mb-4">
             <i class="bi bi-person-circle fs-1 text-primary"></i>
             <h4 class="fw-bold mt-2">ورود به حساب کاربری</h4>
-            <p class="text-muted small">شماره موبایل خود را وارد کنید</p>
+            <p class="text-muted small">ایمیل و رمز عبور خود را وارد کنید</p>
           </div>
+
+          {% if error %}
+          <div class="alert alert-danger py-2 small text-center">{{ error }}</div>
+          {% endif %}
 
           <form method="post" action="{% url 'accounts:login' %}">
             {% csrf_token %}
-            <div class="mb-4">
-              <label for="phone" class="form-label fw-bold">شماره موبایل</label>
+            {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+
+            <div class="mb-3">
+              <label for="email" class="form-label fw-bold">ایمیل</label>
               <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-phone"></i></span>
-                <input type="tel" name="phone" id="phone" class="form-control form-control-lg text-center" placeholder="۰۹۱۲۳۴۵۶۷۸۹" maxlength="11" pattern="09[0-9]{9}" dir="ltr" required autofocus>
+                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                <input type="email" name="email" id="email" class="form-control form-control-lg" placeholder="name@example.com" dir="ltr" value="{{ email|default:'' }}" required autofocus>
               </div>
-              {% if form.phone.errors %}
-              <div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>
-              {% endif %}
-              <div class="form-text">شماره موبایل باید با ۰۹ شروع شود.</div>
+            </div>
+
+            <div class="mb-4">
+              <label for="password" class="form-label fw-bold">رمز عبور</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                <input type="password" name="password" id="password" class="form-control form-control-lg" placeholder="••••••••" dir="ltr" required>
+              </div>
             </div>
 
             <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
-              <i class="bi bi-send me-1"></i> دریافت کد تایید
+              <i class="bi bi-box-arrow-in-left me-1"></i> ورود
             </button>
           </form>
 

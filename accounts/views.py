@@ -1,4 +1,4 @@
-from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
@@ -11,7 +11,7 @@ from .sms_service import send_otp, generate_otp_code
 
 
 class LoginView(View):
-    """GET: show mobile input form. POST: generate and send OTP."""
+    """Email + password login. (SMS/OTP login will be added later.)"""
     template_name = 'accounts/login.html'
 
     def get(self, request):
@@ -20,19 +20,25 @@ class LoginView(View):
         return render(request, self.template_name)
 
     def post(self, request):
-        mobile = request.POST.get('mobile', '').strip()
-        if not mobile or len(mobile) != 11 or not mobile.startswith('09'):
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+
+        if not email or not password:
             return render(request, self.template_name, {
-                'error': 'شماره موبایل معتبر نیست.',
-                'mobile': mobile,
+                'error': 'ایمیل و رمز عبور را وارد کنید.',
+                'email': email,
             })
 
-        code = generate_otp_code()
-        OTPCode.objects.create(mobile=mobile, code=code)
-        send_otp(mobile, code)
+        user = authenticate(request, email=email, password=password)
+        if user is None:
+            return render(request, self.template_name, {
+                'error': 'ایمیل یا رمز عبور نادرست است.',
+                'email': email,
+            })
 
-        request.session['otp_mobile'] = mobile
-        return redirect('accounts:verify_otp')
+        login(request, user)
+        next_url = request.POST.get('next') or request.GET.get('next')
+        return redirect(next_url or 'store:home')
 
 
 class VerifyOTPView(View):

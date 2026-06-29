@@ -23,6 +23,14 @@ class ServiceDetailView(DetailView):
     def get_queryset(self):
         return Service.objects.filter(is_active=True)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['other_services'] = (
+            Service.objects.filter(is_active=True)
+            .exclude(pk=self.object.pk)[:5]
+        )
+        return context
+
 
 class ProjectListView(ListView):
     """List all active projects."""

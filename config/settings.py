@@ -106,6 +106,12 @@ if os.environ.get('VERCEL') and _db_engine == 'django.db.backends.sqlite3':
 
 AUTH_USER_MODEL = 'accounts.User'
 
+# Email+password login first; mobile/OTP (SMS) auth will be added later.
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},

@@ -10,6 +10,7 @@ from accounts.models import User, StaffProfile
 
 mobile = input('شماره موبایل (مثال: 09121234567): ').strip()
 username = input('نام کاربری: ').strip()
+email = input('ایمیل (برای ورود): ').strip()
 password = input('رمز عبور: ').strip()
 first_name = input('نام: ').strip()
 last_name = input('نام خانوادگی: ').strip()
@@ -20,6 +21,7 @@ else:
     user = User.objects.create_superuser(
         username=username,
         mobile=mobile,
+        email=email,
         password=password,
         first_name=first_name,
         last_name=last_name,

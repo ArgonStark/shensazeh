@@ -22,7 +22,7 @@
       <h1 class="fw-bold mb-3">{{ service.title }}</h1>
 
       <div class="service-content lh-lg">
-        {{ service.full_description|safe }}
+        {{ service.description|linebreaks }}
       </div>
 
       {% if service.features %}
@@ -49,10 +49,10 @@
           <i class="bi bi-headset fs-1 text-primary mb-3 d-block"></i>
           <h5 class="fw-bold">مشاوره رایگان</h5>
           <p class="text-muted small">برای دریافت مشاوره و اطلاعات بیشتر با ما تماس بگیرید.</p>
-          <a href="tel:02112345678" class="btn btn-primary w-100 mb-2">
+          <a href="tel:{{ site.phone|default:'09179100761' }}" class="btn btn-primary w-100 mb-2">
             <i class="bi bi-telephone me-1"></i> تماس بگیرید
           </a>
-          <a href="https://wa.me/989123456789" class="btn btn-success w-100">
+          <a href="{{ site.whatsapp|default:'https://wa.me/989179100761' }}" class="btn btn-success w-100">
             <i class="bi bi-whatsapp me-1"></i> واتساپ
           </a>
         </div>

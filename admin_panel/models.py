@@ -13,7 +13,7 @@ class SiteSetting(models.Model):
                                   default='فروشگاه تخصصی ابزار و مصالح ساختمانی با بیش از ده سال سابقه در ارائه بهترین محصولات و خدمات با ضمانت کیفیت.')
 
     # Contact
-    phone = models.CharField('تلفن', max_length=30, blank=True, default='۰۲۱-۱۲۳۴۵۶۷۸')
+    phone = models.CharField('تلفن', max_length=30, blank=True, default='09179100761')
     email = models.EmailField('ایمیل', blank=True, default='info@shensazeh.ir')
     address = models.CharField('آدرس', max_length=300, blank=True, default='تهران، خیابان ولیعصر')
     working_hours = models.CharField('ساعت کاری', max_length=120, blank=True,

@@ -18,7 +18,7 @@
 <nav class="navbar navbar-expand-lg sticky-top">
   <div class="container">
     <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'store:home' %}">
-      <span class="brand-mark"><i class="bi bi-bricks"></i></span>
+      <img src="{% static 'img/logo-mark.png' %}" alt="{{ site.site_name|default:'شن‌سازه' }}" class="brand-logo">
       <span>{{ site.site_name|default:"شن‌سازه" }}</span>
     </a>
 
