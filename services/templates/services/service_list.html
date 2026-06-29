@@ -21,17 +21,16 @@
     {% for service in services %}
     <div class="col-md-6 col-lg-4">
       <div class="card h-100 border-0 shadow-sm text-center hover-lift">
-        {% if service.image %}
-        <img src="{{ service.image.url }}" class="card-img-top" alt="{{ service.title }}" style="height:200px;object-fit:cover;">
-        {% else %}
-        <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:200px;">
-          {% if service.icon %}
-          <i class="bi bi-{{ service.icon }} fs-1 text-primary"></i>
+        <div class="position-relative">
+          {% if service.image %}
+          <img src="{{ service.image.url }}" class="card-img-top" alt="{{ service.title }}" style="height:200px;object-fit:cover;">
           {% else %}
-          <i class="bi bi-tools fs-1 text-primary"></i>
+          <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=70" class="card-img-top" alt="{{ service.title }}" style="height:200px;object-fit:cover;" loading="lazy">
           {% endif %}
+          <span class="position-absolute top-0 start-0 m-2 d-inline-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm" style="width:44px;height:44px;">
+            <i class="bi {{ service.icon|default:'bi-tools' }} fs-5 text-primary"></i>
+          </span>
         </div>
-        {% endif %}
         <div class="card-body d-flex flex-column">
           <h5 class="card-title fw-bold">{{ service.title }}</h5>
           <p class="card-text text-muted small">{{ service.description|truncatewords:20 }}</p>
