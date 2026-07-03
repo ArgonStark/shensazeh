@@ -64,12 +64,29 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="id_price" class="block text-sm font-medium text-gray-700 mb-1">قیمت (ریال)</label>
+                        <label for="id_price" class="block text-sm font-medium text-gray-700 mb-1">قیمت فروش (ریال)</label>
                         <input type="number" name="price" id="id_price" value="{{ form.price.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0">
+                    </div>
+                    <div>
+                        <label for="id_purchase_price" class="block text-sm font-medium text-gray-700 mb-1">آخرین قیمت خرید (ریال)</label>
+                        <input type="number" name="purchase_price" id="id_purchase_price" value="{{ form.purchase_price.value|default_if_none:'0' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0">
+                        <p class="text-xs text-gray-400 mt-1">با ثبت ورود کالا به‌روز می‌شود؛ مبنای محاسبه سود</p>
                     </div>
                     <div>
                         <label for="id_barcode" class="block text-sm font-medium text-gray-700 mb-1">بارکد</label>
                         <input type="text" name="barcode" id="id_barcode" value="{{ form.barcode.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
+                    </div>
+                    <div>
+                        <label for="id_code" class="block text-sm font-medium text-gray-700 mb-1">کد کالا</label>
+                        <input type="text" name="code" id="id_code" value="{{ form.code.value|default_if_none:'' }}" placeholder="خالی = خودکار" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
+                    </div>
+                    <div>
+                        <label for="id_unit" class="block text-sm font-medium text-gray-700 mb-1">واحد</label>
+                        <input type="text" name="unit" id="id_unit" value="{{ form.unit.value|default_if_none:'عدد' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label for="id_expiry_date" class="block text-sm font-medium text-gray-700 mb-1">تاریخ انقضا (اختیاری)</label>
+                        <input type="text" name="expiry_date" id="id_expiry_date" value="{{ form.expiry_date.value|default_if_none:'' }}" placeholder="1405/06/01" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" dir="ltr">
                     </div>
                 </div>
             </div>
@@ -93,7 +110,14 @@
 
                 <div>
                     <label for="id_stock" class="block text-sm font-medium text-gray-700 mb-1">موجودی</label>
-                    <input type="number" name="stock" id="id_stock" value="{{ form.stock.value|default_if_none:'0' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0">
+                    <input type="number" name="stock" id="id_stock" value="{{ form.stock.value|default_if_none:'0' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0" {% if form.instance.pk %}readonly title="موجودی فقط از طریق حرکت انبار تغییر می‌کند"{% endif %}>
+                    {% if form.instance.pk %}<p class="text-xs text-gray-400 mt-1">تغییر موجودی فقط از طریق ورود/خروج انبار</p>{% endif %}
+                </div>
+
+                <div>
+                    <label for="id_reorder_point" class="block text-sm font-medium text-gray-700 mb-1">نقطه سفارش مجدد</label>
+                    <input type="number" name="reorder_point" id="id_reorder_point" value="{{ form.reorder_point.value|default_if_none:'5' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" min="0">
+                    <p class="text-xs text-gray-400 mt-1">هشدار کمبود موجودی وقتی موجودی به این عدد برسد</p>
                 </div>
 
                 <div class="flex items-center justify-between py-2">

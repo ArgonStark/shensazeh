@@ -19,6 +19,7 @@ from dashboard.models import SiteVisit
 from finance.audit import log_action, model_snapshot
 from finance.models import AuditLog
 from inventory.models import InventoryEntry
+from inventory.services import StockError, record_movement
 from orders.models import Order, OrderItem, Invoice, InvoiceItem
 from services.models import Service, Project, ProjectImage
 from store.models import Category, Product, ProductImage, ProductReview
@@ -73,7 +74,8 @@ class AdminDashboardView(StaffRequiredMixin, TemplateView):
         ctx['total_products'] = Product.objects.filter(is_active=True).count()
         ctx['user_count'] = User.objects.count()
         ctx['out_of_stock'] = Product.objects.filter(is_active=True, stock=0).count()
-        ctx['low_stock_products'] = Product.objects.filter(is_active=True, stock__gt=0, stock__lte=10).order_by('stock')[:10]
+        ctx['low_stock_products'] = Product.objects.filter(
+            is_active=True, stock__gt=0, stock__lte=F('reorder_point')).order_by('stock')[:10]
         ctx['recent_invoices'] = Invoice.objects.select_related('order__customer').order_by('-created_at')[:5]
         ctx['invoice_count'] = Invoice.objects.count()
         ctx['announcements'] = Announcement.objects.filter(is_active=True)[:5]
@@ -130,11 +132,11 @@ class AdminProductListView(PanelPermissionMixin, ListView):
         if cat:
             qs = qs.filter(category_id=cat)
         if stock == 'in_stock':
-            qs = qs.filter(stock__gt=10)
+            qs = qs.filter(stock__gt=F('reorder_point'))
         elif stock == 'out_of_stock':
             qs = qs.filter(stock=0)
         elif stock == 'low_stock':
-            qs = qs.filter(stock__gt=0, stock__lte=10)
+            qs = qs.filter(stock__gt=0, stock__lte=F('reorder_point'))
         return qs
 
     def get_context_data(self, **kwargs):
@@ -292,16 +294,27 @@ class AdminInventoryCreateView(PanelPermissionMixin, CreateView):
     success_url = reverse_lazy('admin_panel:inventory_list')
 
     def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        response = super().form_valid(form)
-        log_action(self.request.user, 'create', form.instance)
-        if form.instance.entry_type == 'in':
+        try:
+            entry = record_movement(
+                form.cleaned_data['product'],
+                form.cleaned_data['entry_type'],
+                form.cleaned_data['quantity'],
+                user=self.request.user,
+                supplier=form.cleaned_data.get('supplier', ''),
+                reference=form.cleaned_data.get('reference', ''),
+                notes=form.cleaned_data.get('notes', ''),
+                unit_cost=form.cleaned_data.get('unit_cost') or 0,
+            )
+        except StockError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        if entry.entry_type == 'in':
             try:
                 from telegram_bot.service import send_product_notification
-                send_product_notification(form.instance.product)
+                send_product_notification(entry.product)
             except Exception:
                 pass
-        return response
+        return redirect(self.success_url)
 
 
 class AdminInventoryReportView(PanelPermissionMixin, TemplateView):
@@ -314,8 +327,117 @@ class AdminInventoryReportView(PanelPermissionMixin, TemplateView):
         ctx['products'] = products
         ctx['total_products'] = products.count()
         ctx['out_of_stock'] = products.filter(stock=0).count()
-        ctx['low_stock'] = products.filter(stock__gt=0, stock__lte=10).count()
+        ctx['low_stock'] = products.filter(stock__gt=0, stock__lte=F('reorder_point')).count()
         return ctx
+
+
+class AdminProductKardexView(PanelPermissionMixin, DetailView):
+    """Full stock ledger (کاردکس) of one product."""
+    permission_required = 'inventory.view_inventoryentry'
+    model = Product
+    template_name = 'admin_panel/inventory/kardex.html'
+    context_object_name = 'product'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['entries'] = (self.object.inventory_entries
+                          .select_related('created_by')
+                          .order_by('-created_at', '-id')[:200])
+        return ctx
+
+
+class AdminProductExportView(PanelPermissionMixin, View):
+    permission_required = 'store.view_product'
+
+    def get(self, request):
+        from finance.excel import workbook_response
+        products = Product.objects.select_related('category').order_by('code')
+        headers = ['کد کالا', 'نام', 'دسته‌بندی', 'واحد', 'قیمت فروش (ریال)',
+                   'قیمت خرید (ریال)', 'موجودی', 'نقطه سفارش', 'بارکد', 'وضعیت']
+        rows = [[p.code, p.name, str(p.category), p.unit, p.price, p.purchase_price,
+                 p.stock, p.reorder_point, p.barcode or '', 'فعال' if p.is_active else 'غیرفعال']
+                for p in products]
+        return workbook_response('products', 'محصولات', headers, rows)
+
+
+class AdminProductImportView(PanelPermissionMixin, View):
+    """Excel import: columns کد کالا | نام | دسته‌بندی | واحد | قیمت فروش | قیمت خرید | نقطه سفارش | بارکد
+
+    Existing products (matched by code) get price/unit/reorder updates; new
+    ones are created. Stock is intentionally NOT importable — stock changes
+    must go through inventory movements.
+    """
+    permission_required = 'store.add_product'
+
+    @transaction.atomic
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            messages.error(request, 'فایل اکسل انتخاب نشده است.')
+            return redirect('admin_panel:product_list')
+        from django.utils.text import slugify
+
+        from finance.excel import read_sheet
+        try:
+            _, rows = read_sheet(file_obj)
+        except Exception:
+            messages.error(request, 'فایل اکسل قابل خواندن نیست.')
+            return redirect('admin_panel:product_list')
+
+        created = updated = skipped = 0
+        for row in rows:
+            row = list(row) + [''] * (8 - len(row))
+            code = str(row[0] or '').strip()
+            name = str(row[1] or '').strip()
+            if not name:
+                skipped += 1
+                continue
+
+            def as_int(value, default=0):
+                try:
+                    return max(0, int(float(value)))
+                except (TypeError, ValueError):
+                    return default
+
+            category = None
+            cat_name = str(row[2] or '').strip()
+            if cat_name:
+                category = Category.objects.filter(name=cat_name.split('→')[-1].strip()).first()
+
+            product = Product.objects.filter(code=code).first() if code else None
+            if product:
+                product.name = name
+                if category:
+                    product.category = category
+                product.unit = str(row[3] or '').strip() or product.unit
+                product.price = as_int(row[4], product.price)
+                product.purchase_price = as_int(row[5], product.purchase_price)
+                product.reorder_point = as_int(row[6], product.reorder_point)
+                product.save()
+                updated += 1
+            else:
+                if category is None:
+                    category = Category.objects.filter(is_active=True).first()
+                if category is None:
+                    skipped += 1
+                    continue
+                slug = slugify(name, allow_unicode=True)
+                if Product.objects.filter(slug=slug).exists():
+                    slug = f'{slug}-{Product.objects.count() + 1}'
+                Product.objects.create(
+                    code=code or None,
+                    name=name,
+                    slug=slug,
+                    category=category,
+                    unit=str(row[3] or '').strip() or 'عدد',
+                    price=as_int(row[4]),
+                    purchase_price=as_int(row[5]),
+                    reorder_point=as_int(row[6], 5),
+                    barcode=str(row[7] or '').strip() or None,
+                )
+                created += 1
+        messages.success(request, f'{created} محصول جدید، {updated} بروزرسانی ({skipped} رد شد).')
+        return redirect('admin_panel:product_list')
 
 
 # ─── Invoices ────────────────────────────────────────────────

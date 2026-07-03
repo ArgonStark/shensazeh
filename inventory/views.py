@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.db.models import Sum, Q
+from django.db.models import F, Sum, Q
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, TemplateView
 
 from store.models import Product
 from .models import InventoryEntry
+from .services import StockError, record_movement
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
@@ -39,8 +41,20 @@ class InventoryCreateView(StaffRequiredMixin, CreateView):
     success_url = reverse_lazy('inventory:inventory_list')
 
     def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        return super().form_valid(form)
+        try:
+            record_movement(
+                form.cleaned_data['product'],
+                form.cleaned_data['entry_type'],
+                form.cleaned_data['quantity'],
+                user=self.request.user,
+                supplier=form.cleaned_data.get('supplier', ''),
+                reference=form.cleaned_data.get('reference', ''),
+                notes=form.cleaned_data.get('notes', ''),
+            )
+        except StockError as exc:
+            form.add_error(None, str(exc))
+            return self.form_invalid(form)
+        return redirect(self.success_url)
 
 
 class InventoryDashboardView(StaffRequiredMixin, TemplateView):
@@ -53,7 +67,7 @@ class InventoryDashboardView(StaffRequiredMixin, TemplateView):
         products = Product.objects.filter(is_active=True)
         context['total_products'] = products.count()
         context['out_of_stock'] = products.filter(stock=0).count()
-        context['low_stock'] = products.filter(stock__gt=0, stock__lte=10).count()
+        context['low_stock'] = products.filter(stock__gt=0, stock__lte=F('reorder_point')).count()
         context['products'] = products.order_by('stock')[:20]
 
         context['total_in'] = (

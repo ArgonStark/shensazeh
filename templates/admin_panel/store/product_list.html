@@ -11,17 +11,54 @@
         <h1 class="text-2xl font-bold text-gray-800">محصولات</h1>
         <p class="text-sm text-gray-500 mt-1">مدیریت محصولات فروشگاه</p>
     </div>
-    <a href="{% url 'admin_panel:product_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-        </svg>
-        افزودن محصول
-    </a>
+    <div class="flex items-center gap-2 flex-wrap">
+        <a href="{% url 'admin_panel:product_export' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            خروجی اکسل
+        </a>
+        {% if perms.store.add_product %}
+        <button @click="$dispatch('open-product-import')" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            ورود از اکسل
+        </button>
+        <a href="{% url 'admin_panel:product_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            افزودن محصول
+        </a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<div x-data="{ deleteModal: false, deleteUrl: '' }">
+<div x-data="{ deleteModal: false, deleteUrl: '', importModal: false }" @open-product-import.window="importModal = true">
+
+    {# Import Modal #}
+    {% if perms.store.add_product %}
+    <div x-show="importModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="importModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">ورود محصولات از اکسل</h3>
+                <p class="text-xs text-gray-500 mt-1">ستون‌ها: کد کالا، نام، دسته‌بندی، واحد، قیمت فروش، قیمت خرید، نقطه سفارش، بارکد — موجودی فقط از طریق حرکت انبار تغییر می‌کند.</p>
+            </div>
+            <form method="post" action="{% url 'admin_panel:product_import' %}" enctype="multipart/form-data" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="product_import_file" class="block text-sm font-medium text-gray-700 mb-1">فایل اکسل (xlsx)</label>
+                    <input type="file" name="file" id="product_import_file" accept=".xlsx" required
+                           class="w-full text-sm text-gray-500 file:ml-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ورود اطلاعات</button>
+                    <button type="button" @click="importModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 
     {# --- Filters --- #}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -102,6 +139,11 @@
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2">
+                                {% if perms.inventory.view_inventoryentry %}
+                                <a href="{% url 'admin_panel:product_kardex' product.pk %}" class="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="کاردکس" aria-label="کاردکس">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                </a>
+                                {% endif %}
                                 <a href="{% url 'admin_panel:product_edit' product.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>

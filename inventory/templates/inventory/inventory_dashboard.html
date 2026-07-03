@@ -91,7 +91,7 @@
               <td class="fw-bold">{{ product.name }}</td>
               <td>{{ product.category.name }}</td>
               <td class="fw-bold">{{ product.stock|intcomma }}</td>
-              <td>{{ product.min_stock|intcomma }}</td>
+              <td>{{ product.reorder_point|intcomma }}</td>
               <td>
                 {% if product.stock == 0 %}
                 <span class="badge bg-danger">ناموجود</span>

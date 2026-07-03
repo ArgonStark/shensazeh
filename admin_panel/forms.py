@@ -20,18 +20,31 @@ TW = {
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'slug', 'category', 'description', 'specifications', 'price', 'barcode', 'stock', 'is_active']
+        fields = ['name', 'slug', 'code', 'category', 'description', 'specifications', 'unit',
+                  'price', 'purchase_price', 'barcode', 'stock', 'reorder_point', 'expiry_date', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'نام محصول'}),
             'slug': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'اسلاگ (خودکار)'}),
+            'code': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'خالی = خودکار', 'dir': 'ltr'}),
             'category': forms.Select(attrs={'class': TW['select']}),
             'description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 4}),
             'specifications': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3, 'placeholder': '{"رنگ": "سفید", "وزن": "1kg"}'}),
-            'price': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت (ریال)'}),
+            'unit': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'عدد / کیلوگرم / متر'}),
+            'price': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت فروش (ریال)'}),
+            'purchase_price': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت خرید (ریال)'}),
             'barcode': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'بارکد'}),
             'stock': forms.NumberInput(attrs={'class': TW['input']}),
+            'reorder_point': forms.NumberInput(attrs={'class': TW['input']}),
+            'expiry_date': forms.TextInput(attrs={'class': TW['input'], 'placeholder': '1405/06/01 (اختیاری)', 'dir': 'ltr'}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            # Stock is set once at creation; afterwards it only moves through
+            # inventory movements (disabled fields ignore posted values).
+            self.fields['stock'].disabled = True
 
 
 class CategoryForm(forms.ModelForm):
@@ -52,15 +65,26 @@ class CategoryForm(forms.ModelForm):
 class InventoryEntryForm(forms.ModelForm):
     class Meta:
         model = InventoryEntry
-        fields = ['product', 'entry_type', 'quantity', 'supplier', 'reference', 'notes']
+        fields = ['product', 'entry_type', 'quantity', 'unit_cost', 'supplier', 'reference', 'notes']
         widgets = {
             'product': forms.Select(attrs={'class': TW['select']}),
             'entry_type': forms.RadioSelect(attrs={'class': 'sr-only peer'}),
             'quantity': forms.NumberInput(attrs={'class': TW['input'], 'min': 1}),
+            'unit_cost': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت واحد به ریال (اختیاری)'}),
             'supplier': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'نام تأمین‌کننده'}),
             'reference': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'شماره مرجع'}),
             'notes': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['unit_cost'].required = False
+        # The manual entry form only offers plain in/out; returns and
+        # adjustments are recorded by their source documents.
+        self.fields['entry_type'].choices = [
+            ('in', 'ورود کالا'),
+            ('out', 'خروج کالا'),
+        ]
 
 
 class InvoiceForm(forms.ModelForm):

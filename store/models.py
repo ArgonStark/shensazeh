@@ -27,12 +27,18 @@ class Category(models.Model):
 class Product(models.Model):
     name = models.CharField('نام محصول', max_length=200)
     slug = models.SlugField('اسلاگ', unique=True, allow_unicode=True)
+    code = models.CharField('کد کالا', max_length=20, unique=True, null=True, blank=True,
+                            help_text='خالی بگذارید تا خودکار ساخته شود')
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name='دسته‌بندی')
     description = models.TextField('توضیحات', blank=True)
     specifications = models.JSONField('مشخصات فنی', default=dict, blank=True)
-    price = models.PositiveBigIntegerField('قیمت (ریال)')
+    unit = models.CharField('واحد', max_length=20, default='عدد')
+    price = models.PositiveBigIntegerField('قیمت فروش (ریال)')
+    purchase_price = models.PositiveBigIntegerField('آخرین قیمت خرید (ریال)', default=0)
     barcode = models.CharField('بارکد', max_length=50, blank=True, unique=True, null=True)
     stock = models.PositiveIntegerField('موجودی', default=0)
+    reorder_point = models.PositiveIntegerField('نقطه سفارش مجدد', default=5)
+    expiry_date = jmodels.jDateField('تاریخ انقضا', null=True, blank=True)
     is_active = models.BooleanField('فعال', default=True)
     created_at = jmodels.jDateTimeField('تاریخ ایجاد', auto_now_add=True)
     updated_at = jmodels.jDateTimeField('آخرین بروزرسانی', auto_now=True)
@@ -44,6 +50,24 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.code:
+            # Auto product code from the pk; staff may overwrite with a manual code.
+            self.code = f'P{self.pk:05d}'
+            super().save(update_fields=['code'])
+
+    @property
+    def profit_per_unit(self) -> int:
+        """Rial. Sale price minus last purchase cost (0 when cost unknown)."""
+        if not self.purchase_price:
+            return 0
+        return self.price - self.purchase_price
+
+    @property
+    def is_low_stock(self) -> bool:
+        return 0 < self.stock <= self.reorder_point
 
     @property
     def primary_image(self):

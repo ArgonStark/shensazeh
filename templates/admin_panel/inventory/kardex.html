@@ -1,0 +1,85 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}کاردکس {{ product.name }}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">کاردکس: {{ product.name }}</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            کد کالا: <span class="font-mono" dir="ltr">{{ product.code }}</span>
+            <span class="text-gray-300 mx-1">|</span> واحد: {{ product.unit }}
+            <span class="text-gray-300 mx-1">|</span> موجودی فعلی: <strong>{{ product.stock }}</strong>
+        </p>
+    </div>
+    <div class="flex items-center gap-2">
+        {% if perms.inventory.add_inventoryentry %}
+        <a href="{% url 'admin_panel:inventory_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">ثبت حرکت جدید</a>
+        {% endif %}
+        <a href="{% url 'admin_panel:product_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">بازگشت</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">قیمت فروش</p>
+            <p class="text-xl font-bold text-gray-800 mt-1">{{ product.price|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">آخرین قیمت خرید</p>
+            <p class="text-xl font-bold text-gray-800 mt-1">{{ product.purchase_price|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">سود هر {{ product.unit }}</p>
+            <p class="text-xl font-bold {% if product.profit_per_unit >= 0 %}text-green-600{% else %}text-red-600{% endif %} mt-1">
+                {{ product.profit_per_unit|toman|cut:'-' }}{% if product.profit_per_unit < 0 %}-{% endif %}
+                <span class="text-xs font-normal text-gray-400">تومان</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع حرکت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تعداد</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">قیمت واحد (تومان)</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">موجودی پس از حرکت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مرجع</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">ثبت‌کننده</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for entry in entries %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ entry.created_at|date:'Y/m/d H:i' }}</td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {% if entry.is_inbound %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                                {{ entry.get_entry_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-medium {% if entry.is_inbound %}text-green-600{% else %}text-red-600{% endif %}">
+                            {% if entry.is_inbound %}+{% else %}-{% endif %}{{ entry.quantity }}
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">{% if entry.unit_cost %}{{ entry.unit_cost|toman }}{% else %}—{% endif %}</td>
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ entry.balance_after }}</td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.reference|default:'—' }}{% if entry.supplier %} · {{ entry.supplier }}{% endif %}</td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.created_by|default:'—' }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">حرکتی برای این کالا ثبت نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

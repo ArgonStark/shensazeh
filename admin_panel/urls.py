@@ -23,6 +23,9 @@ urlpatterns = [
     path('inventory/', views.AdminInventoryListView.as_view(), name='inventory_list'),
     path('inventory/create/', views.AdminInventoryCreateView.as_view(), name='inventory_create'),
     path('inventory/report/', views.AdminInventoryReportView.as_view(), name='inventory_report'),
+    path('products/<int:pk>/kardex/', views.AdminProductKardexView.as_view(), name='product_kardex'),
+    path('products/export/', views.AdminProductExportView.as_view(), name='product_export'),
+    path('products/import/', views.AdminProductImportView.as_view(), name='product_import'),
     # Invoices
     path('invoices/', views.AdminInvoiceListView.as_view(), name='invoice_list'),
     path('invoices/create/', views.AdminInvoiceCreateView.as_view(), name='invoice_create'),
