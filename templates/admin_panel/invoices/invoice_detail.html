@@ -166,6 +166,29 @@
             <div class="flex justify-between"><span class="text-gray-500">سررسید مانده:</span><span class="text-gray-800">{{ invoice.due_date|date:'Y/m/d' }}</span></div>
             {% endif %}
         </div>
+
+        {# Linked cheques #}
+        {% if perms.cheques.view_cheque %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-800">چک‌های مرتبط</h3>
+                {% if invoice.status == 'issued' and perms.cheques.add_cheque %}
+                <a href="{% url 'admin_panel:cheque_create' %}?invoice={{ invoice.pk }}&party={{ invoice.party_id }}&direction={% if invoice.doc_type == 'purchase' %}issued{% else %}received{% endif %}"
+                   class="text-xs text-indigo-600 hover:text-indigo-800">+ ثبت چک</a>
+                {% endif %}
+            </div>
+            {% for cheque in invoice.cheques.all %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 text-sm">
+                <span class="font-mono text-xs" dir="ltr">{{ cheque.serial }}</span>
+                <span class="text-gray-600">{{ cheque.due_date|date:'Y/m/d' }}</span>
+                <span class="text-gray-800 font-medium">{{ cheque.amount|toman }} ت</span>
+                <span class="text-xs {% if cheque.status == 'cleared' %}text-green-600{% elif cheque.status == 'bounced' %}text-red-600{% else %}text-yellow-600{% endif %}">{{ cheque.get_status_display }}</span>
+            </div>
+            {% empty %}
+            <p class="text-xs text-gray-400">چکی به این سند متصل نیست</p>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

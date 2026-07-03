@@ -1,4 +1,6 @@
 from django import forms
+from cheques.models import Cheque, ChequeBook, ChequePrintLayout
+from finance.text import parse_jalali_date
 from store.models import Category, Product, ProductReview
 from inventory.models import InventoryEntry
 from orders.models import Invoice, InvoiceItem
@@ -227,6 +229,81 @@ class PaymentForm(forms.ModelForm):
             'reference': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'شماره پیگیری (اختیاری)'}),
             'description': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'شرح (اختیاری)'}),
         }
+
+
+class ChequeForm(forms.ModelForm):
+    due_date = forms.CharField(
+        label='تاریخ سررسید (شمسی)',
+        widget=forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': '1404/06/15'}),
+    )
+
+    class Meta:
+        model = Cheque
+        fields = ['direction', 'party', 'invoice', 'cheque_book', 'serial', 'sayad_id',
+                  'bank_name', 'branch', 'amount', 'due_date', 'payee', 'description']
+        widgets = {
+            'direction': forms.Select(attrs={'class': TW['select']}),
+            'party': forms.Select(attrs={'class': TW['select']}),
+            'invoice': forms.Select(attrs={'class': TW['select']}),
+            'cheque_book': forms.Select(attrs={'class': TW['select']}),
+            'serial': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'sayad_id': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': '۱۶ رقم (اختیاری)'}),
+            'bank_name': forms.TextInput(attrs={'class': TW['input']}),
+            'branch': forms.TextInput(attrs={'class': TW['input']}),
+            'amount': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'مبلغ به ریال', 'min': 1}),
+            'payee': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'در وجه (برای چاپ)'}),
+            'description': forms.TextInput(attrs={'class': TW['input']}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from parties.models import Party
+        from orders.models import Invoice
+        self.fields['party'].queryset = Party.objects.filter(is_active=True).order_by('name')
+        self.fields['invoice'].queryset = Invoice.objects.filter(status='issued').order_by('-created_at')
+        self.fields['invoice'].required = False
+        self.fields['cheque_book'].queryset = ChequeBook.objects.filter(is_active=True)
+        self.fields['cheque_book'].required = False
+        if self.instance.pk and self.instance.due_date:
+            self.initial.setdefault('due_date', self.instance.due_date.strftime('%Y/%m/%d'))
+
+    def clean_due_date(self):
+        parsed = parse_jalali_date(self.cleaned_data['due_date'])
+        if parsed is None:
+            raise forms.ValidationError('تاریخ را به شکل ۱۴۰۴/۰۶/۱۵ وارد کنید.')
+        return parsed
+
+    def clean_amount(self):
+        amount = self.cleaned_data['amount']
+        if amount <= 0:
+            raise forms.ValidationError('مبلغ باید بزرگ‌تر از صفر باشد.')
+        return amount
+
+
+class ChequeBookForm(forms.ModelForm):
+    class Meta:
+        model = ChequeBook
+        fields = ['bank_name', 'branch', 'account_number', 'serial_from', 'serial_to', 'notes', 'is_active']
+        widgets = {
+            'bank_name': forms.TextInput(attrs={'class': TW['input']}),
+            'branch': forms.TextInput(attrs={'class': TW['input']}),
+            'account_number': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'serial_from': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'serial_to': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'notes': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2}),
+            'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+        }
+
+
+class ChequePrintLayoutForm(forms.ModelForm):
+    class Meta:
+        model = ChequePrintLayout
+        fields = ['bank_name', 'paper_width', 'paper_height', 'date_x', 'date_y',
+                  'amount_x', 'amount_y', 'words_x', 'words_y', 'payee_x', 'payee_y']
+        widgets = {field: forms.NumberInput(attrs={'class': TW['input']})
+                   for field in ['paper_width', 'paper_height', 'date_x', 'date_y',
+                                 'amount_x', 'amount_y', 'words_x', 'words_y', 'payee_x', 'payee_y']}
+        widgets['bank_name'] = forms.TextInput(attrs={'class': TW['input']})
 
 
 class StaffForm(forms.Form):

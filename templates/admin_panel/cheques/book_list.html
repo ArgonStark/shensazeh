@@ -1,0 +1,112 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}دسته‌چک‌ها{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">دسته‌چک‌ها</h1>
+        <p class="text-sm text-gray-500 mt-1">منبع چک‌های پرداختی فروشگاه</p>
+    </div>
+    {% if perms.cheques.add_chequebook %}
+    <button @click="$dispatch('open-add-book')" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        دسته‌چک جدید
+    </button>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ addModal: false }" @open-add-book.window="addModal = true">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">بانک</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">شعبه</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">شماره حساب</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">بازه سریال</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">چک‌های ثبت‌شده</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for book in books %}
+                    <tr class="hover:bg-gray-50 transition {% if not book.is_active %}opacity-50{% endif %}">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ book.bank_name }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ book.branch|default:'—' }}</td>
+                        <td class="px-4 py-3 text-gray-600 font-mono text-xs" dir="ltr">{{ book.account_number|default:'—' }}</td>
+                        <td class="px-4 py-3 text-gray-600 font-mono text-xs" dir="ltr">{% if book.serial_from %}{{ book.serial_from }} → {{ book.serial_to }}{% else %}—{% endif %}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ book.cheque_count }}</td>
+                        <td class="px-4 py-3">
+                            {% if book.is_active %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">فعال</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">غیرفعال</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if perms.cheques.change_chequebook %}
+                            <form method="post" action="{% url 'admin_panel:chequebook_toggle' book.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition">
+                                    {% if book.is_active %}غیرفعال کن{% else %}فعال کن{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">دسته‌چکی ثبت نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Add modal #}
+    {% if perms.cheques.add_chequebook %}
+    <div x-show="addModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="addModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">دسته‌چک جدید</h3>
+            </div>
+            <form method="post" action="{% url 'admin_panel:chequebook_create' %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ form.bank_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">بانک <span class="text-red-500">*</span></label>
+                    {{ form.bank_name }}
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="{{ form.branch.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شعبه</label>
+                        {{ form.branch }}
+                    </div>
+                    <div>
+                        <label for="{{ form.account_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شماره حساب</label>
+                        {{ form.account_number }}
+                    </div>
+                    <div>
+                        <label for="{{ form.serial_from.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">سریال اول</label>
+                        {{ form.serial_from }}
+                    </div>
+                    <div>
+                        <label for="{{ form.serial_to.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">سریال آخر</label>
+                        {{ form.serial_to }}
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ثبت</button>
+                    <button type="button" @click="addModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

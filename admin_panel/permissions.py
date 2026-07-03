@@ -29,6 +29,10 @@ MODULES = {
         'label': 'طرف حساب‌ها و دفتر حساب',
         'models': ['parties.party', 'parties.partytag', 'parties.ledgerentry', 'parties.payment'],
     },
+    'cheques': {
+        'label': 'چک‌ها',
+        'models': ['cheques.cheque', 'cheques.chequebook', 'cheques.chequeprintlayout'],
+    },
     'blog': {
         'label': 'وبلاگ و اطلاعیه‌ها',
         'models': ['blog.blogpost', 'blog.blogcomment', 'blog.announcement'],
@@ -64,6 +68,7 @@ ROLE_DEFAULTS = {
     'accountant': {
         'invoices': ACTIONS,
         'parties': ACTIONS,
+        'cheques': ACTIONS,
         'inventory': ['view'],
         'products': ['view'],
         'users': ['view'],
@@ -72,6 +77,7 @@ ROLE_DEFAULTS = {
     'sales': {
         'invoices': ['view', 'add', 'change'],
         'parties': ['view', 'add', 'change'],
+        'cheques': ['view', 'add'],
         'products': ['view'],
         'inventory': ['view'],
         'users': ['view'],

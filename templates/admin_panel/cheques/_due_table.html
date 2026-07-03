@@ -1,0 +1,48 @@
+{% load finance_tags %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">سررسید</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">شماره چک</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">طرف حساب</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">بانک</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">مبلغ (تومان)</th>
+                <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for cheque in rows %}
+            <tr class="hover:bg-gray-50 transition">
+                <td class="px-4 py-3 text-xs whitespace-nowrap font-medium text-gray-800">{{ cheque.due_date|date:'Y/m/d' }}</td>
+                <td class="px-4 py-3 font-mono text-xs" dir="ltr">{{ cheque.serial }}</td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {% if cheque.direction == 'received' %}bg-green-100 text-green-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                        {{ cheque.get_direction_display }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-gray-800">{{ cheque.party.name }}</td>
+                <td class="px-4 py-3 text-gray-600 text-xs">{{ cheque.bank_name }}</td>
+                <td class="px-4 py-3 font-medium text-gray-800">{{ cheque.amount|toman }}</td>
+                <td class="px-4 py-3">
+                    {% if perms.cheques.change_cheque %}
+                    <div class="flex items-center gap-1.5">
+                        <form method="post" action="{% url 'admin_panel:cheque_status' cheque.pk %}" class="inline">
+                            {% csrf_token %}<input type="hidden" name="status" value="cleared">
+                            <button type="submit" class="px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition">وصول</button>
+                        </form>
+                        <form method="post" action="{% url 'admin_panel:cheque_status' cheque.pk %}" class="inline">
+                            {% csrf_token %}<input type="hidden" name="status" value="bounced">
+                            <button type="submit" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition">برگشت</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">چکی در این بازه نیست</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

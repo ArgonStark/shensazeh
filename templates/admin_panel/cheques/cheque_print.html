@@ -1,0 +1,52 @@
+{% load finance_tags %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>چاپ چک {{ cheque.serial }}</title>
+    <style>
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+        }
+        @page { size: {{ layout.paper_width }}mm {{ layout.paper_height }}mm; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Vazirmatn', 'Tahoma', sans-serif; font-size: 12px; direction: rtl; }
+        .cheque {
+            position: relative;
+            width: {{ layout.paper_width }}mm;
+            height: {{ layout.paper_height }}mm;
+            margin: 0 auto;
+        }
+        .field { position: absolute; white-space: nowrap; }
+        .f-date   { right: {{ layout.date_x }}mm;   top: {{ layout.date_y }}mm; }
+        .f-amount { right: {{ layout.amount_x }}mm; top: {{ layout.amount_y }}mm; }
+        .f-words  { right: {{ layout.words_x }}mm;  top: {{ layout.words_y }}mm; white-space: normal; max-width: {{ layout.paper_width|add:'-40' }}mm; }
+        .f-payee  { right: {{ layout.payee_x }}mm;  top: {{ layout.payee_y }}mm; }
+
+        /* Screen-only preview chrome */
+        .toolbar { padding: 12px; background: #f1f5f9; text-align: center; font-size: 13px; }
+        .toolbar a, .toolbar button { margin: 0 6px; padding: 6px 18px; border-radius: 8px; border: 1px solid #cbd5e1;
+                                      background: #fff; cursor: pointer; text-decoration: none; color: #334155; font-family: inherit; font-size: 13px; }
+        .toolbar .primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+        .preview-frame { border: 1px dashed #94a3b8; margin: 16px auto; width: {{ layout.paper_width }}mm; }
+        @media print { .toolbar, .hint { display: none; } .preview-frame { border: none; margin: 0; } }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="primary" onclick="window.print()">چاپ چک</button>
+        <a href="{% url 'admin_panel:cheque_layout' cheque.pk %}">تنظیم قالب {{ layout.bank_name }}</a>
+        <a href="{% url 'admin_panel:cheque_list' %}">بازگشت</a>
+    </div>
+    <p class="hint" style="text-align:center; color:#64748b; font-size:11px;">چک {{ layout.bank_name }} را داخل چاپگر بگذارید؛ کادر خط‌چین اندازه برگه چک است.</p>
+
+    <div class="preview-frame">
+        <div class="cheque">
+            <div class="field f-date">{{ cheque.due_date|date:'Y/m/d'|fa_digits }}</div>
+            <div class="field f-amount">{{ cheque.amount|rial|fa_digits }} ریال</div>
+            <div class="field f-words">{{ cheque.amount_words }}</div>
+            <div class="field f-payee">{{ cheque.payee|default:cheque.party.name }}</div>
+        </div>
+    </div>
+</body>
+</html>

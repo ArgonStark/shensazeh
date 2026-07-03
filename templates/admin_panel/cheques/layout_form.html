@@ -1,0 +1,49 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ page_title }}</h1>
+        <p class="text-sm text-gray-500 mt-1">فاصله هر فیلد از لبه راست و بالای برگه چک، به میلی‌متر</p>
+    </div>
+    <a href="{% url 'admin_panel:cheque_print' cheque.pk %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">پیش‌نمایش چاپ</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="max-w-2xl">
+    {% csrf_token %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label for="{{ form.bank_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">بانک</label>
+                {{ form.bank_name }}
+            </div>
+            <div>
+                <label for="{{ form.paper_width.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">عرض برگه (mm)</label>
+                {{ form.paper_width }}
+            </div>
+            <div>
+                <label for="{{ form.paper_height.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">ارتفاع برگه (mm)</label>
+                {{ form.paper_height }}
+            </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.date_x.id_for_label }}">تاریخ — از راست</label>{{ form.date_x }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.date_y.id_for_label }}">تاریخ — از بالا</label>{{ form.date_y }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.amount_x.id_for_label }}">مبلغ عددی — از راست</label>{{ form.amount_x }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.amount_y.id_for_label }}">مبلغ عددی — از بالا</label>{{ form.amount_y }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.words_x.id_for_label }}">مبلغ حروفی — از راست</label>{{ form.words_x }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.words_y.id_for_label }}">مبلغ حروفی — از بالا</label>{{ form.words_y }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.payee_x.id_for_label }}">در وجه — از راست</label>{{ form.payee_x }}</div>
+            <div><label class="block text-sm font-medium text-gray-700 mb-1" for="{{ form.payee_y.id_for_label }}">در وجه — از بالا</label>{{ form.payee_y }}</div>
+        </div>
+    </div>
+    <div class="flex items-center gap-3 mt-4">
+        <button type="submit" class="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition">ذخیره و پیش‌نمایش</button>
+    </div>
+</form>
+{% endblock %}

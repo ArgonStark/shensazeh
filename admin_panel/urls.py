@@ -36,6 +36,17 @@ urlpatterns = [
     path('invoices/<int:pk>/cancel/', views.AdminInvoiceCancelView.as_view(), name='invoice_cancel'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
+    # Cheques
+    path('cheques/', views.AdminChequeListView.as_view(), name='cheque_list'),
+    path('cheques/create/', views.AdminChequeCreateView.as_view(), name='cheque_create'),
+    path('cheques/due-report/', views.AdminChequeDueReportView.as_view(), name='cheque_due_report'),
+    path('cheques/books/', views.AdminChequeBookListView.as_view(), name='chequebook_list'),
+    path('cheques/books/create/', views.AdminChequeBookCreateView.as_view(), name='chequebook_create'),
+    path('cheques/books/<int:pk>/toggle/', views.AdminChequeBookToggleView.as_view(), name='chequebook_toggle'),
+    path('cheques/<int:pk>/edit/', views.AdminChequeEditView.as_view(), name='cheque_edit'),
+    path('cheques/<int:pk>/status/', views.AdminChequeStatusView.as_view(), name='cheque_status'),
+    path('cheques/<int:pk>/print/', views.AdminChequePrintView.as_view(), name='cheque_print'),
+    path('cheques/<int:pk>/layout/', views.AdminChequeLayoutEditView.as_view(), name='cheque_layout'),
     # Parties
     path('parties/', views.AdminPartyListView.as_view(), name='party_list'),
     path('parties/create/', views.AdminPartyCreateView.as_view(), name='party_create'),

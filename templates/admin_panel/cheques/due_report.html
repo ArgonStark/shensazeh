@@ -1,0 +1,53 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}گزارش سررسید چک‌ها{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">گزارش سررسید چک‌ها</h1>
+        <p class="text-sm text-gray-500 mt-1">امروز: {{ today|date:'Y/m/d' }} — چک‌های معوق و سررسید ۳۰ روز آینده</p>
+    </div>
+    <a href="{% url 'admin_panel:cheque_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">همه چک‌ها</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">معوق دریافتی</p>
+            <p class="text-lg font-bold text-red-600 mt-1">{{ overdue_received|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">معوق پرداختی</p>
+            <p class="text-lg font-bold text-red-600 mt-1">{{ overdue_issued|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">۳۰ روز آینده — دریافتی</p>
+            <p class="text-lg font-bold text-green-600 mt-1">{{ upcoming_received|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">۳۰ روز آینده — پرداختی</p>
+            <p class="text-lg font-bold text-amber-600 mt-1">{{ upcoming_issued|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 bg-red-50/50">
+            <h3 class="text-lg font-semibold text-red-700">چک‌های معوق (سررسید گذشته)</h3>
+        </div>
+        {% include 'admin_panel/cheques/_due_table.html' with rows=overdue %}
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">سررسید ۳۰ روز آینده</h3>
+        </div>
+        {% include 'admin_panel/cheques/_due_table.html' with rows=upcoming %}
+    </div>
+</div>
+{% endblock %}

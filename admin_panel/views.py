@@ -27,6 +27,8 @@ from orders.services import InvoiceError, cancel_invoice, issue_invoice, recompu
 from services.models import Service, Project, ProjectImage
 from store.models import Category, Product, ProductImage, ProductReview
 
+from cheques.models import Cheque, ChequeBook, ChequePrintLayout
+from cheques.services import ChequeError, set_cheque_status
 from parties.models import LedgerEntry, Party, PartyTag, Payment
 from parties.services import LedgerError, ledger_rows_with_balance, record_payment
 
@@ -34,6 +36,7 @@ from . import permissions as panel_permissions
 from .forms import (
     ProductForm, CategoryForm, InventoryEntryForm,
     BlogPostForm, AnnouncementForm, PartyForm, PaymentForm,
+    ChequeForm, ChequeBookForm, ChequePrintLayoutForm,
     ServiceForm, ProjectForm, StaffForm,
 )
 
@@ -1007,6 +1010,209 @@ class AdminPartyImportView(PanelPermissionMixin, View):
             created += 1
         messages.success(request, f'{created} طرف حساب وارد شد ({skipped} رد شد).')
         return redirect('admin_panel:party_list')
+
+
+# ─── Cheques (چک‌ها) ─────────────────────────────────────────
+
+class AdminChequeListView(PanelPermissionMixin, ListView):
+    permission_required = 'cheques.view_cheque'
+    template_name = 'admin_panel/cheques/cheque_list.html'
+    context_object_name = 'cheques'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Cheque.objects.select_related('party', 'invoice')
+        params = self.request.GET
+        if params.get('direction') in dict(Cheque.DIRECTION_CHOICES):
+            qs = qs.filter(direction=params['direction'])
+        if params.get('status') in dict(Cheque.STATUS_CHOICES):
+            qs = qs.filter(status=params['status'])
+        q = params.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(serial__icontains=q) | Q(sayad_id__icontains=q)
+                           | Q(party__name__icontains=q) | Q(bank_name__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        import jdatetime
+        ctx = super().get_context_data(**kwargs)
+        ctx['direction_choices'] = Cheque.DIRECTION_CHOICES
+        ctx['status_choices'] = Cheque.STATUS_CHOICES
+        ctx['today'] = jdatetime.date.today()
+        for key in ('q', 'direction', 'status'):
+            ctx[f'f_{key}'] = self.request.GET.get(key, '')
+        return ctx
+
+
+class AdminChequeCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'cheques.add_cheque'
+    form_class = ChequeForm
+    template_name = 'admin_panel/cheques/cheque_form.html'
+    success_url = reverse_lazy('admin_panel:cheque_list')
+
+    def get_initial(self):
+        initial = super().get_initial()
+        for key in ('party', 'invoice', 'direction'):
+            if self.request.GET.get(key):
+                initial[key] = self.request.GET[key]
+        return initial
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        log_action(self.request.user, 'create', self.object)
+        messages.success(self.request, 'چک ثبت شد.')
+        return response
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['page_title'] = 'ثبت چک جدید'
+        return ctx
+
+
+class AdminChequeEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'cheques.change_cheque'
+    model = Cheque
+    form_class = ChequeForm
+    template_name = 'admin_panel/cheques/cheque_form.html'
+    success_url = reverse_lazy('admin_panel:cheque_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        cheque = self.get_object()
+        if cheque.status != 'pending' and request.user.is_authenticated and request.user.is_staff:
+            messages.error(request, 'چک وصول‌شده/برگشتی قابل ویرایش نیست.')
+            return redirect('admin_panel:cheque_list')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        before = model_snapshot(self.model.objects.get(pk=self.object.pk))
+        response = super().form_valid(form)
+        log_action(self.request.user, 'update', self.object, before=before, after=model_snapshot(self.object))
+        return response
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['page_title'] = f'ویرایش چک {self.object.serial}'
+        return ctx
+
+
+class AdminChequeStatusView(PanelPermissionMixin, View):
+    permission_required = 'cheques.change_cheque'
+
+    def post(self, request, pk):
+        cheque = get_object_or_404(Cheque, pk=pk)
+        try:
+            cheque = set_cheque_status(cheque, request.POST.get('status', ''), request.user)
+            messages.success(request, f'چک {cheque.serial}: {cheque.get_status_display()}.')
+        except ChequeError as exc:
+            messages.error(request, str(exc))
+        return redirect(request.META.get('HTTP_REFERER') or 'admin_panel:cheque_list')
+
+
+class AdminChequeDueReportView(PanelPermissionMixin, TemplateView):
+    permission_required = 'cheques.view_cheque'
+    template_name = 'admin_panel/cheques/due_report.html'
+
+    def get_context_data(self, **kwargs):
+        import datetime
+
+        import jdatetime
+        ctx = super().get_context_data(**kwargs)
+        today = jdatetime.date.today()
+        horizon = today + datetime.timedelta(days=30)
+        pending = Cheque.objects.filter(status='pending').select_related('party')
+        ctx['overdue'] = pending.filter(due_date__lt=today)
+        ctx['upcoming'] = pending.filter(due_date__gte=today, due_date__lte=horizon)
+        ctx['overdue_received'] = sum(c.amount for c in ctx['overdue'] if c.direction == 'received')
+        ctx['overdue_issued'] = sum(c.amount for c in ctx['overdue'] if c.direction == 'issued')
+        ctx['upcoming_received'] = sum(c.amount for c in ctx['upcoming'] if c.direction == 'received')
+        ctx['upcoming_issued'] = sum(c.amount for c in ctx['upcoming'] if c.direction == 'issued')
+        ctx['today'] = today
+        return ctx
+
+
+class AdminChequePrintView(PanelPermissionMixin, DetailView):
+    """Browser-print page positioned by the bank's stored offsets."""
+    permission_required = 'cheques.view_cheque'
+    model = Cheque
+    template_name = 'admin_panel/cheques/cheque_print.html'
+    context_object_name = 'cheque'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        layout, _ = ChequePrintLayout.objects.get_or_create(bank_name=self.object.bank_name)
+        ctx['layout'] = layout
+        return ctx
+
+
+class AdminChequeLayoutEditView(PanelPermissionMixin, View):
+    """Adjust the per-bank x/y print offsets for a cheque's bank."""
+    permission_required = 'cheques.change_chequeprintlayout'
+    template_name = 'admin_panel/cheques/layout_form.html'
+
+    def get_layout(self, pk):
+        cheque = get_object_or_404(Cheque, pk=pk)
+        layout, _ = ChequePrintLayout.objects.get_or_create(bank_name=cheque.bank_name)
+        return cheque, layout
+
+    def get(self, request, pk):
+        from django.shortcuts import render
+        cheque, layout = self.get_layout(pk)
+        return render(request, self.template_name, {
+            'cheque': cheque,
+            'form': ChequePrintLayoutForm(instance=layout),
+            'page_title': f'قالب چاپ {layout.bank_name}',
+        })
+
+    def post(self, request, pk):
+        from django.shortcuts import render
+        cheque, layout = self.get_layout(pk)
+        form = ChequePrintLayoutForm(request.POST, instance=layout)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'قالب چاپ ذخیره شد.')
+            return redirect('admin_panel:cheque_print', pk=cheque.pk)
+        return render(request, self.template_name, {'cheque': cheque, 'form': form,
+                                                    'page_title': f'قالب چاپ {layout.bank_name}'})
+
+
+class AdminChequeBookListView(PanelPermissionMixin, ListView):
+    permission_required = 'cheques.view_chequebook'
+    template_name = 'admin_panel/cheques/book_list.html'
+    context_object_name = 'books'
+
+    def get_queryset(self):
+        return ChequeBook.objects.annotate(cheque_count=Count('cheques'))
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['form'] = ChequeBookForm()
+        return ctx
+
+
+class AdminChequeBookCreateView(PanelPermissionMixin, View):
+    permission_required = 'cheques.add_chequebook'
+
+    def post(self, request):
+        form = ChequeBookForm(request.POST)
+        if form.is_valid():
+            book = form.save()
+            log_action(request.user, 'create', book)
+            messages.success(request, 'دسته‌چک ثبت شد.')
+        else:
+            messages.error(request, 'اطلاعات دسته‌چک نامعتبر است.')
+        return redirect('admin_panel:chequebook_list')
+
+
+class AdminChequeBookToggleView(PanelPermissionMixin, View):
+    permission_required = 'cheques.change_chequebook'
+
+    def post(self, request, pk):
+        book = get_object_or_404(ChequeBook, pk=pk)
+        book.is_active = not book.is_active
+        book.save(update_fields=['is_active'])
+        log_action(request.user, 'status', book)
+        return redirect('admin_panel:chequebook_list')
 
 
 # ─── Blog ────────────────────────────────────────────────────
