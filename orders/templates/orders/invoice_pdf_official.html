@@ -1,0 +1,131 @@
+{% load finance_tags %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ invoice.invoice_number }}</title>
+  <style>
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+      font-weight: normal;
+    }
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+      font-weight: bold;
+    }
+    @page { size: A4; margin: 12mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Vazirmatn', 'Tahoma', sans-serif; font-size: 10px; color: #222; direction: rtl; line-height: 1.7; }
+    .frame { border: 1.5px solid #334155; padding: 12px; }
+    .doc-title { text-align: center; font-size: 15px; font-weight: bold; margin-bottom: 2px; }
+    .doc-subtitle { text-align: center; font-size: 9px; color: #64748b; margin-bottom: 10px; }
+    .meta-row { display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 8px; }
+    .box { border: 1px solid #94a3b8; margin-bottom: 8px; }
+    .box-title { background: #e2e8f0; padding: 3px 8px; font-weight: bold; font-size: 9px; border-bottom: 1px solid #94a3b8; }
+    .box-body { padding: 6px 8px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+    .box-body span { white-space: nowrap; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    table.items th { background: #e2e8f0; border: 1px solid #94a3b8; padding: 4px; font-size: 9px; }
+    table.items td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; }
+    table.items td.desc { text-align: right; }
+    .totals { width: 300px; margin-right: auto; border-collapse: collapse; margin-bottom: 8px; }
+    .totals td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+    .totals .grand td { background: #e2e8f0; font-weight: bold; }
+    .words { border: 1px dashed #94a3b8; padding: 6px 10px; margin-bottom: 10px; font-size: 9.5px; }
+    .sign-row { display: flex; gap: 12px; }
+    .sign-box { flex: 1; border: 1px solid #94a3b8; height: 70px; padding: 4px 8px; font-size: 9px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div class="doc-title">
+      {% if invoice.doc_type == 'proforma' %}پیش‌فاکتور فروش کالا و خدمات{% else %}صورت‌حساب فروش کالا و خدمات{% endif %}
+    </div>
+    <div class="doc-subtitle">موضوع ماده ۱۶۹ قانون مالیات‌های مستقیم و مالیات بر ارزش افزوده</div>
+
+    <div class="meta-row">
+      <span>شماره سریال: <strong>{{ invoice.invoice_number }}</strong></span>
+      <span>تاریخ: <strong>{{ invoice.issued_at|date:'Y/m/d'|default:invoice.created_at|date:'Y/m/d' }}</strong></span>
+      <span>نوع سند: <strong>{{ invoice.get_doc_type_display }}</strong></span>
+    </div>
+
+    {# Seller #}
+    <div class="box">
+      <div class="box-title">مشخصات فروشنده</div>
+      <div class="box-body">
+        <span>نام: <strong>{{ site.legal_name|default:site.site_name }}</strong></span>
+        {% if site.economic_code %}<span>کد اقتصادی: {{ site.economic_code }}</span>{% endif %}
+        {% if site.national_id %}<span>شناسه ملی: {{ site.national_id }}</span>{% endif %}
+        {% if site.registration_number %}<span>شماره ثبت: {{ site.registration_number }}</span>{% endif %}
+        <span>تلفن: {{ site.phone }}</span>
+        {% if site.postal_code %}<span>کد پستی: {{ site.postal_code }}</span>{% endif %}
+        <span>نشانی: {{ site.address }}</span>
+      </div>
+    </div>
+
+    {# Buyer #}
+    <div class="box">
+      <div class="box-title">مشخصات خریدار</div>
+      <div class="box-body">
+        <span>نام: <strong>{{ invoice.customer_name|default:'—' }}</strong></span>
+        {% if invoice.party.national_id %}<span>کد/شناسه ملی: {{ invoice.party.national_id }}</span>{% endif %}
+        {% if invoice.party.economic_code %}<span>کد اقتصادی: {{ invoice.party.economic_code }}</span>{% endif %}
+        {% if invoice.customer_mobile %}<span>تلفن: {{ invoice.customer_mobile }}</span>{% endif %}
+        {% if invoice.party.postal_code %}<span>کد پستی: {{ invoice.party.postal_code }}</span>{% endif %}
+        <span>نشانی: {{ invoice.customer_address|default:'—' }}</span>
+      </div>
+    </div>
+
+    {# Items with VAT breakdown #}
+    <table class="items">
+      <thead>
+        <tr>
+          <th style="width:4%">ردیف</th>
+          <th style="width:8%">کد کالا</th>
+          <th>شرح کالا / خدمت</th>
+          <th style="width:6%">تعداد</th>
+          <th style="width:6%">واحد</th>
+          <th style="width:11%">مبلغ واحد (ریال)</th>
+          <th style="width:11%">مبلغ کل (ریال)</th>
+          <th style="width:9%">تخفیف (ریال)</th>
+          <th style="width:12%">پس از تخفیف (ریال)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in invoice.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{% if item.product %}{{ item.product.code }}{% else %}—{% endif %}</td>
+          <td class="desc">{{ item.label }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ item.unit|default:'—' }}</td>
+          <td>{{ item.unit_price|rial }}</td>
+          <td>{{ item.gross|rial }}</td>
+          <td>{{ item.discount|rial }}</td>
+          <td>{{ item.net|rial }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <table class="totals">
+      <tr><td>جمع اقلام:</td><td>{{ invoice.subtotal|rial }} ریال</td></tr>
+      {% if invoice.items_discount %}<tr><td>تخفیف سطری:</td><td>{{ invoice.items_discount|rial }} ریال</td></tr>{% endif %}
+      {% if invoice.discount %}<tr><td>تخفیف کلی:</td><td>{{ invoice.discount|rial }} ریال</td></tr>{% endif %}
+      <tr><td>مالیات بر ارزش افزوده ({{ invoice.vat_rate }}٪):</td><td>{{ invoice.tax|rial }} ریال</td></tr>
+      <tr class="grand"><td>جمع کل قابل پرداخت:</td><td>{{ invoice.total|rial }} ریال</td></tr>
+    </table>
+
+    <div class="words">
+      مبلغ به حروف: <strong>{{ invoice.total|rial_words }}</strong>
+      {% if invoice.notes %}<br>توضیحات: {{ invoice.notes }}{% endif %}
+    </div>
+
+    <div class="sign-row">
+      <div class="sign-box">مهر و امضای فروشنده</div>
+      <div class="sign-box">مهر و امضای خریدار</div>
+    </div>
+  </div>
+</body>
+</html>

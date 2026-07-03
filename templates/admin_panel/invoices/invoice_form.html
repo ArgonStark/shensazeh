@@ -1,190 +1,241 @@
 {% extends 'admin_panel/base.html' %}
 {% load static %}
-{% load humanize %}
 
-{% block title %}{% if invoice %}ویرایش فاکتور{% else %}فاکتور جدید{% endif %}{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block page_header %}
-<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-    <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <a href="{% url 'admin_panel:invoice_list' %}" class="hover:text-blue-600 transition">فاکتورها</a>
-        <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        <span class="text-gray-700">{% if invoice %}ویرایش فاکتور #{{ invoice.number }}{% else %}فاکتور جدید{% endif %}</span>
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ page_title }}</h1>
+        <p class="text-sm text-gray-500 mt-1">مبالغ به ریال ثبت می‌شوند؛ محاسبات نهایی در سرور انجام و اعتبارسنجی می‌شود.</p>
     </div>
-    <h1 class="text-2xl font-bold text-gray-800">{% if invoice %}ویرایش فاکتور{% else %}ایجاد فاکتور جدید{% endif %}</h1>
+    <a href="{% url 'admin_panel:invoice_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">بازگشت به لیست</a>
 </div>
 {% endblock %}
 
 {% block content %}
-<form method="post" x-data="invoiceForm()" class="space-y-6">
+<form method="post" x-data="invoiceForm()" @submit="beforeSubmit">
     {% csrf_token %}
+    <input type="hidden" name="submission_token" value="{{ submission_token }}">
+    <input type="hidden" name="action" x-ref="action" value="draft">
 
-    {% if form.errors %}
-    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
-        <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
-            {% for field in form %}{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}{% endfor %}
-            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {# ── Main column ─────────────────────────────── #}
+        <div class="lg:col-span-2 space-y-6">
 
-    {# --- Customer Info --- #}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">اطلاعات مشتری</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-                <label for="id_customer_name" class="block text-sm font-medium text-gray-700 mb-1">نام مشتری</label>
-                <input type="text" name="customer_name" id="id_customer_name" value="{{ form.customer_name.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" required>
+            {# Header: type + party #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_doc_type" class="block text-sm font-medium text-gray-700 mb-1">نوع سند</label>
+                        {% if invoice %}
+                        <input type="hidden" name="doc_type" value="{{ invoice.doc_type }}">
+                        <p class="px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-700">{{ invoice.get_doc_type_display }}</p>
+                        {% else %}
+                        <select name="doc_type" id="id_doc_type" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                            {% for value, label in doc_type_choices %}
+                            <option value="{{ value }}" {% if value == doc_type %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+                    <div x-data="{ newParty: false }">
+                        <label for="id_party" class="block text-sm font-medium text-gray-700 mb-1">طرف حساب <span class="text-red-500">*</span></label>
+                        <select name="party_id" id="id_party" @change="newParty = $event.target.value === 'new'">
+                            <option value="">انتخاب کنید...</option>
+                            <option value="new">+ طرف حساب جدید</option>
+                            {% for party in parties %}
+                            <option value="{{ party.pk }}" {% if invoice.party_id == party.pk %}selected{% endif %}>{{ party.name }}{% if party.mobile %} — {{ party.mobile }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <div x-show="newParty" x-cloak class="grid grid-cols-2 gap-2 mt-2">
+                            <input type="text" name="new_party_name" placeholder="نام طرف حساب جدید" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <input type="text" name="new_party_mobile" placeholder="موبایل (اختیاری)" dir="ltr" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label for="id_customer_mobile" class="block text-sm font-medium text-gray-700 mb-1">موبایل</label>
-                <input type="tel" name="customer_mobile" id="id_customer_mobile" value="{{ form.customer_mobile.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" dir="ltr">
+
+            {# Line items #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">اقلام سند</h3>
+                    <button type="button" @click="addRow()" class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                        + افزودن ردیف
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium min-w-[180px]">کالا / شرح خدمت</th>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium w-20">تعداد</th>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium w-36">قیمت واحد (ریال)</th>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium w-32">تخفیف (ریال)</th>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium w-20">٪ مالیات</th>
+                                <th class="px-3 py-2 text-right text-gray-600 font-medium w-32">جمع (تومان)</th>
+                                <th class="w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <template x-for="(item, index) in items" :key="item.key">
+                                <tr>
+                                    <td class="px-3 py-2 space-y-1">
+                                        <select name="item_product" x-model="item.product" @change="productChanged(item)"
+                                                class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+                                            <option value="">— خدمت / شرح آزاد —</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.pk }}">{{ product.name }} (موجودی: {{ product.stock }})</option>
+                                            {% endfor %}
+                                        </select>
+                                        <input type="text" name="item_description" x-model="item.description"
+                                               :placeholder="item.product ? 'شرح (اختیاری)' : 'شرح خدمت *'"
+                                               class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" name="item_qty" x-model.number="item.qty" min="1"
+                                               class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" name="item_price" x-model.number="item.price" min="0"
+                                               class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" name="item_discount" x-model.number="item.discount" min="0"
+                                               class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input type="number" name="item_vat" x-model="item.vat" min="0" max="100" placeholder="—"
+                                               title="خالی = نرخ فاکتور"
+                                               class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-800 font-medium" x-text="fmtToman(lineNet(item))"></td>
+                                    <td class="px-2 py-2">
+                                        <button type="button" @click="removeRow(index)" x-show="items.length > 1"
+                                                class="p-1 text-gray-300 hover:text-red-500 transition" aria-label="حذف ردیف">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div>
-                <label for="id_customer_address" class="block text-sm font-medium text-gray-700 mb-1">آدرس</label>
-                <input type="text" name="customer_address" id="id_customer_address" value="{{ form.customer_address.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+
+            {# Notes #}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <label for="id_notes" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
+                <textarea name="notes" id="id_notes" rows="2" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">{% if invoice %}{{ invoice.notes }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        {# ── Side column: totals & settlement ─────────── #}
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800">جمع سند</h3>
+                <div>
+                    <label for="id_discount" class="block text-sm font-medium text-gray-700 mb-1">تخفیف کلی (ریال)</label>
+                    <input type="number" name="discount" id="id_discount" x-model.number="headerDiscount" min="0"
+                           class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
+                <div>
+                    <label for="id_vat_rate" class="block text-sm font-medium text-gray-700 mb-1">نرخ مالیات بر ارزش افزوده (٪)</label>
+                    <input type="number" name="vat_rate" id="id_vat_rate" x-model.number="vatRate" min="0" max="100"
+                           class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
+                <div class="border-t border-gray-100 pt-4 space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">جمع اقلام:</span><span class="font-medium text-gray-800" x-text="fmtToman(subtotal()) + ' تومان'"></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">تخفیف‌ها:</span><span class="text-red-600" x-text="fmtToman(totalDiscount()) + '- تومان'"></span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">مالیات:</span><span class="text-gray-800" x-text="fmtToman(taxPreview()) + ' تومان'"></span></div>
+                    <div class="flex justify-between border-t border-gray-100 pt-2">
+                        <span class="font-bold text-gray-800">جمع کل:</span>
+                        <span class="font-bold text-lg text-indigo-600" x-text="fmtToman(grandTotal()) + ' تومان'"></span>
+                    </div>
+                    <p class="text-xs text-gray-400">پیش‌نمایش تقریبی — مبلغ قطعی را سرور محاسبه می‌کند.</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800">تسویه</h3>
+                <div>
+                    <label for="id_settlement" class="block text-sm font-medium text-gray-700 mb-1">نحوه تسویه</label>
+                    <select name="settlement_type" id="id_settlement" x-model="settlement"
+                            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                        {% for value, label in settlement_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div x-show="settlement === 'partial' || settlement === 'card' || settlement === 'cheque' || settlement === 'installment'" x-cloak>
+                    <label for="id_paid_amount" class="block text-sm font-medium text-gray-700 mb-1">مبلغ پرداختی الان (ریال)</label>
+                    <input type="number" name="paid_amount" id="id_paid_amount" min="0"
+                           value="{% if invoice %}{{ invoice.paid_amount }}{% else %}0{% endif %}"
+                           class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
+                <div x-show="settlement !== 'cash'" x-cloak>
+                    <label for="id_due_date" class="block text-sm font-medium text-gray-700 mb-1">سررسید مانده (شمسی)</label>
+                    <input type="text" name="due_date" id="id_due_date" placeholder="1404/06/15" dir="ltr"
+                           value="{% if invoice.due_date %}{{ invoice.due_date|date:'Y/m/d' }}{% endif %}"
+                           class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
+                <p class="text-xs text-gray-400">در تسویه «نقدی»، کل مبلغ به‌عنوان پرداختی ثبت می‌شود. چک پس از صدور از بخش چک‌ها به سند متصل می‌شود.</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-3">
+                <button type="submit" @click="$refs.action.value = 'issue'"
+                        class="w-full px-6 py-3 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition">
+                    ثبت و صدور سند
+                </button>
+                <button type="submit" @click="$refs.action.value = 'draft'"
+                        class="w-full px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition">
+                    ذخیره به‌عنوان پیش‌نویس
+                </button>
+                <p class="text-xs text-gray-400">صدور، موجودی انبار و دفتر حساب طرف را به‌روز می‌کند و شماره سری می‌گیرد.</p>
             </div>
         </div>
     </div>
 
-    {# --- Line Items --- #}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4">اقلام فاکتور</h3>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 rounded-t-lg">
-                    <tr>
-                        <th class="px-3 py-2 text-right text-gray-600 font-medium">محصول</th>
-                        <th class="px-3 py-2 text-right text-gray-600 font-medium">شرح</th>
-                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-24">تعداد</th>
-                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-36">قیمت واحد</th>
-                        <th class="px-3 py-2 text-right text-gray-600 font-medium w-36">جمع</th>
-                        <th class="px-3 py-2 w-10"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="(item, index) in items" :key="index">
-                        <tr class="border-t border-gray-100">
-                            <td class="px-3 py-2">
-                                <select :name="'items-' + index + '-product'" x-model="item.product" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                                    <option value="">انتخاب...</option>
-                                    {% for product in products %}
-                                    <option value="{{ product.id }}">{{ product.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </td>
-                            <td class="px-3 py-2">
-                                <input type="text" :name="'items-' + index + '-description'" x-model="item.description" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="شرح...">
-                            </td>
-                            <td class="px-3 py-2">
-                                <input type="number" :name="'items-' + index + '-quantity'" x-model.number="item.quantity" min="1" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm text-center" @input="updateTotals()">
-                            </td>
-                            <td class="px-3 py-2">
-                                <input type="number" :name="'items-' + index + '-unit_price'" x-model.number="item.unit_price" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
-                            </td>
-                            <td class="px-3 py-2">
-                                <span class="block text-sm font-medium text-gray-700 py-2" x-text="(item.quantity * item.unit_price).toLocaleString('fa-IR') + ' ریال'"></span>
-                            </td>
-                            <td class="px-3 py-2">
-                                <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                    </svg>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div>
-
-        <input type="hidden" name="items_count" :value="items.length">
-
-        <button type="button" @click="addItem()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-400 hover:text-blue-600 transition text-sm font-medium">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            افزودن ردیف
-        </button>
-    </div>
-
-    {# --- Totals --- #}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="max-w-md mr-auto space-y-3">
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-600">جمع کل:</span>
-                <span class="font-medium text-gray-800" x-text="subtotal.toLocaleString('fa-IR') + ' ریال'"></span>
-            </div>
-            <div class="flex items-center justify-between text-sm gap-4">
-                <span class="text-gray-600">تخفیف (ریال):</span>
-                <input type="number" name="discount" x-model.number="discount" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
-            </div>
-            <div class="flex items-center justify-between text-sm gap-4">
-                <span class="text-gray-600">مالیات (ریال):</span>
-                <input type="number" name="tax" x-model.number="tax" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
-            </div>
-            <div class="flex items-center justify-between text-base pt-3 border-t border-gray-200">
-                <span class="font-semibold text-gray-800">مبلغ نهایی:</span>
-                <span class="font-bold text-lg text-blue-600" x-text="grandTotal.toLocaleString('fa-IR') + ' ریال'"></span>
-            </div>
-        </div>
-    </div>
-
-    {# --- Notes --- #}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <label for="id_notes" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-        <textarea name="notes" id="id_notes" rows="3" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="توضیحات فاکتور (اختیاری)...">{{ form.notes.value|default_if_none:'' }}</textarea>
-    </div>
-
-    {# --- Actions --- #}
-    <div class="flex items-center gap-3">
-        <button type="submit" class="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">
-            {% if invoice %}ذخیره تغییرات{% else %}ایجاد فاکتور{% endif %}
-        </button>
-        <a href="{% url 'admin_panel:invoice_list' %}" class="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</a>
-    </div>
-</form>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function invoiceForm() {
-    return {
-        items: [{ product: '', description: '', quantity: 1, unit_price: 0 }],
-        discount: {{ form.discount.value|default:0 }},
-        tax: {{ form.tax.value|default:0 }},
-        subtotal: 0,
-        grandTotal: 0,
-
-        init() {
-            {% if invoice_items %}
-            this.items = [
-                {% for item in invoice_items %}
-                { product: '{{ item.product_id }}', description: '{{ item.description|escapejs }}', quantity: {{ item.quantity }}, unit_price: {{ item.unit_price }} },
-                {% endfor %}
-            ];
-            {% endif %}
-            this.updateTotals();
-        },
-
-        addItem() {
-            this.items.push({ product: '', description: '', quantity: 1, unit_price: 0 });
-        },
-
-        removeItem(index) {
-            if (this.items.length > 1) {
-                this.items.splice(index, 1);
-                this.updateTotals();
-            }
-        },
-
-        updateTotals() {
-            this.subtotal = this.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-            this.grandTotal = this.subtotal - (this.discount || 0) + (this.tax || 0);
-            if (this.grandTotal < 0) this.grandTotal = 0;
+    {{ initial_items|json_script:'initial-items' }}
+    <script>
+        const PRODUCT_DATA = {
+            {% for product in products %}'{{ product.pk }}': { price: {{ product.price }}, unit: '{{ product.unit|escapejs }}' },{% endfor %}
+        };
+        function invoiceForm() {
+            let initial = [];
+            try { initial = JSON.parse(JSON.parse(document.getElementById('initial-items').textContent)); } catch (e) {}
+            let counter = 0;
+            const mkRow = (r) => ({ key: ++counter, product: String(r?.product ?? ''), description: r?.description ?? '',
+                                    qty: r?.qty ?? 1, price: r?.price ?? 0, discount: r?.discount ?? 0, vat: r?.vat ?? '' });
+            return {
+                items: (initial.length ? initial.map(mkRow) : [mkRow()]),
+                headerDiscount: {{ invoice.discount|default:0 }},
+                vatRate: {{ default_vat_rate }},
+                settlement: '{{ invoice.settlement_type|default:"cash" }}',
+                addRow() { this.items.push(mkRow()); },
+                removeRow(i) { this.items.splice(i, 1); },
+                productChanged(item) {
+                    const data = PRODUCT_DATA[item.product];
+                    if (data) item.price = data.price;
+                },
+                lineNet(item) { return Math.max(0, (item.qty || 0) * (item.price || 0) - (item.discount || 0)); },
+                subtotal() { return this.items.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0); },
+                totalDiscount() { return this.items.reduce((s, i) => s + (i.discount || 0), 0) + (this.headerDiscount || 0); },
+                taxPreview() {
+                    const base = Math.max(0, this.subtotal() - this.totalDiscount());
+                    return Math.floor(base * (this.vatRate || 0) / 100);
+                },
+                grandTotal() { return Math.max(0, this.subtotal() - this.totalDiscount()) + this.taxPreview(); },
+                fmtToman(rial) { return Math.floor((rial || 0) / 10).toLocaleString('fa-IR'); },
+                beforeSubmit(e) {
+                    const filled = this.items.some(i => i.product || i.description);
+                    if (!filled) { e.preventDefault(); alert('حداقل یک قلم وارد کنید.'); }
+                },
+            };
         }
-    }
-}
-</script>
+        document.addEventListener('DOMContentLoaded', () => {
+            new TomSelect('#id_party', { create: false, placeholder: 'جستجوی طرف حساب...' });
+        });
+    </script>
+</form>
 {% endblock %}

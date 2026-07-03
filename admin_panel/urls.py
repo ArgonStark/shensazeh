@@ -29,8 +29,11 @@ urlpatterns = [
     # Invoices
     path('invoices/', views.AdminInvoiceListView.as_view(), name='invoice_list'),
     path('invoices/create/', views.AdminInvoiceCreateView.as_view(), name='invoice_create'),
+    path('invoices/export/', views.AdminInvoiceExportView.as_view(), name='invoice_export'),
     path('invoices/<int:pk>/', views.AdminInvoiceDetailView.as_view(), name='invoice_detail'),
     path('invoices/<int:pk>/edit/', views.AdminInvoiceEditView.as_view(), name='invoice_edit'),
+    path('invoices/<int:pk>/issue/', views.AdminInvoiceIssueView.as_view(), name='invoice_issue'),
+    path('invoices/<int:pk>/cancel/', views.AdminInvoiceCancelView.as_view(), name='invoice_cancel'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
     # Parties

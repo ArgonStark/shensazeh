@@ -1,4 +1,6 @@
 import json
+import uuid
+
 import anthropic
 from django.conf import settings
 from django.contrib import messages
@@ -21,6 +23,7 @@ from finance.models import AuditLog
 from inventory.models import InventoryEntry
 from inventory.services import StockError, record_movement
 from orders.models import Order, OrderItem, Invoice, InvoiceItem
+from orders.services import InvoiceError, cancel_invoice, issue_invoice, recompute_totals
 from services.models import Service, Project, ProjectImage
 from store.models import Category, Product, ProductImage, ProductReview
 
@@ -29,7 +32,7 @@ from parties.services import LedgerError, ledger_rows_with_balance, record_payme
 
 from . import permissions as panel_permissions
 from .forms import (
-    ProductForm, CategoryForm, InventoryEntryForm, InvoiceForm,
+    ProductForm, CategoryForm, InventoryEntryForm,
     BlogPostForm, AnnouncementForm, PartyForm, PaymentForm,
     ServiceForm, ProjectForm, StaffForm,
 )
@@ -442,6 +445,68 @@ class AdminProductImportView(PanelPermissionMixin, View):
 
 # ─── Invoices ────────────────────────────────────────────────
 
+def _parse_invoice_items(request):
+    """Parse posted line-item arrays into dicts (server re-validates everything)."""
+    from finance.text import parse_int
+    products = request.POST.getlist('item_product')
+    descriptions = request.POST.getlist('item_description')
+    quantities = request.POST.getlist('item_qty')
+    prices = request.POST.getlist('item_price')
+    discounts = request.POST.getlist('item_discount')
+    vats = request.POST.getlist('item_vat')
+    items = []
+    for i in range(len(quantities)):
+        pid = (products[i] if i < len(products) else '').strip()
+        description = (descriptions[i] if i < len(descriptions) else '').strip()
+        qty = parse_int(quantities[i], 0)
+        if not pid and not description:
+            continue  # empty row
+        product = None
+        if pid:
+            product = Product.objects.filter(pk=parse_int(pid, -1)).first()
+            if product is None:
+                raise InvoiceError('محصول انتخاب‌شده معتبر نیست.')
+        vat_raw = (vats[i] if i < len(vats) else '').strip()
+        items.append({
+            'product': product,
+            'description': description,
+            'quantity': qty,
+            'unit_price': parse_int(prices[i] if i < len(prices) else 0, 0),
+            'discount': parse_int(discounts[i] if i < len(discounts) else 0, 0),
+            'vat_rate': parse_int(vat_raw, 0) if vat_raw else None,
+            'unit': product.unit if product else '',
+        })
+    if not items:
+        raise InvoiceError('فاکتور باید حداقل یک قلم داشته باشد.')
+    for item in items:
+        if item['quantity'] <= 0:
+            raise InvoiceError('تعداد هر قلم باید بزرگ‌تر از صفر باشد.')
+        if item['unit_price'] <= 0:
+            raise InvoiceError('قیمت واحد هر قلم باید بزرگ‌تر از صفر باشد.')
+    return items
+
+
+def _resolve_party(request):
+    """Selected existing party, or quick-created one from name+mobile."""
+    party_id = request.POST.get('party_id', '').strip()
+    if party_id == 'new':
+        name = request.POST.get('new_party_name', '').strip()
+        if not name:
+            raise InvoiceError('نام طرف حساب جدید را وارد کنید.')
+        mobile = request.POST.get('new_party_mobile', '').strip()
+        existing = Party.objects.filter(mobile=mobile).first() if mobile else None
+        if existing:
+            return existing
+        party = Party.objects.create(name=name, mobile=mobile, party_type='customer')
+        log_action(request.user, 'create', party)
+        return party
+    from finance.text import parse_int
+    party = Party.objects.filter(pk=parse_int(party_id, -1), is_active=True).first()
+    if party is None:
+        raise InvoiceError('طرف حساب را انتخاب کنید.')
+    return party
+
+
 class AdminInvoiceListView(PanelPermissionMixin, ListView):
     permission_required = 'orders.view_invoice'
     template_name = 'admin_panel/invoices/invoice_list.html'
@@ -449,92 +514,193 @@ class AdminInvoiceListView(PanelPermissionMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Invoice.objects.select_related('order__customer').order_by('-created_at')
-        q = self.request.GET.get('q', '').strip()
-        paid = self.request.GET.get('paid', '').strip()
+        from finance.text import parse_jalali_date
+        qs = Invoice.objects.select_related('party')
+        params = self.request.GET
+        q = params.get('q', '').strip()
         if q:
-            qs = qs.filter(Q(invoice_number__icontains=q) | Q(customer_name__icontains=q))
+            qs = qs.filter(Q(invoice_number__icontains=q) | Q(customer_name__icontains=q)
+                           | Q(party__name__icontains=q) | Q(party__mobile__icontains=q))
+        if params.get('type') in dict(Invoice.DOC_TYPE_CHOICES):
+            qs = qs.filter(doc_type=params['type'])
+        if params.get('status') in dict(Invoice.STATUS_CHOICES):
+            qs = qs.filter(status=params['status'])
+        paid = params.get('paid', '')
         if paid == 'yes':
             qs = qs.filter(is_paid=True)
         elif paid == 'no':
             qs = qs.filter(is_paid=False)
+        date_from = parse_jalali_date(params.get('from', ''))
+        date_to = parse_jalali_date(params.get('to', ''))
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from.togregorian())
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to.togregorian())
         return qs
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['doc_type_choices'] = Invoice.DOC_TYPE_CHOICES
+        ctx['status_choices'] = Invoice.STATUS_CHOICES
+        for key in ('q', 'type', 'status', 'paid', 'from', 'to'):
+            ctx[f'f_{key}'] = self.request.GET.get(key, '')
+        ctx['querystring'] = self.request.GET.urlencode()
+        return ctx
 
-class AdminInvoiceCreateView(PanelPermissionMixin, View):
-    permission_required = 'orders.add_invoice'
+
+class AdminInvoiceExportView(AdminInvoiceListView):
+    """Excel export of the current filter set."""
+
+    def render_to_response(self, context, **response_kwargs):
+        from finance.excel import workbook_response
+        headers = ['شماره', 'نوع', 'وضعیت', 'طرف حساب', 'تاریخ', 'جمع اقلام (ریال)',
+                   'تخفیف (ریال)', 'مالیات (ریال)', 'جمع کل (ریال)', 'پرداختی (ریال)', 'تسویه']
+        rows = [[inv.invoice_number, inv.get_doc_type_display(), inv.get_status_display(),
+                 inv.customer_name or (inv.party.name if inv.party else ''),
+                 inv.created_at.strftime('%Y/%m/%d') if inv.created_at else '',
+                 inv.subtotal, inv.items_discount + inv.discount, inv.tax, inv.total,
+                 inv.paid_amount, 'بله' if inv.is_paid else 'خیر']
+                for inv in self.object_list]
+        return workbook_response('invoices', 'فاکتورها', headers, rows)
+
+    def get_paginate_by(self, queryset):
+        return None
+
+
+class _InvoiceFormMixin:
+    """Shared context + POST handling for the create/edit screens."""
     template_name = 'admin_panel/invoices/invoice_form.html'
 
+    def _form_context(self, request, invoice=None, doc_type='sale'):
+        products = Product.objects.filter(is_active=True).order_by('name')
+        initial_items = []
+        if invoice:
+            for item in invoice.items.all():
+                initial_items.append({
+                    'product': item.product_id or '',
+                    'description': item.description,
+                    'qty': item.quantity,
+                    'price': item.unit_price,
+                    'discount': item.discount,
+                    'vat': '' if item.vat_rate is None else item.vat_rate,
+                })
+        from admin_panel.models import SiteSetting
+        return {
+            'invoice': invoice,
+            'doc_type': invoice.doc_type if invoice else doc_type,
+            'doc_type_choices': Invoice.DOC_TYPE_CHOICES,
+            'settlement_choices': Invoice.SETTLEMENT_CHOICES,
+            'products': products,
+            'parties': Party.objects.filter(is_active=True).order_by('name'),
+            'default_vat_rate': invoice.vat_rate if invoice else SiteSetting.load().vat_rate,
+            'initial_items': json.dumps(initial_items, ensure_ascii=False),
+            'submission_token': uuid.uuid4(),
+            'page_title': (f'ویرایش {invoice.invoice_number}' if invoice else 'سند جدید'),
+        }
+
+    def _apply_post(self, request, invoice):
+        """Write posted header + items onto a draft invoice and recompute."""
+        from finance.text import parse_int, parse_jalali_date
+        items = _parse_invoice_items(request)
+        invoice.party = _resolve_party(request)
+        invoice.customer_name = invoice.party.name
+        invoice.customer_mobile = invoice.party.mobile
+        invoice.customer_address = invoice.party.address
+        invoice.discount = parse_int(request.POST.get('discount'), 0)
+        invoice.vat_rate = parse_int(request.POST.get('vat_rate'), 0)
+        invoice.settlement_type = (request.POST.get('settlement_type')
+                                   if request.POST.get('settlement_type') in dict(Invoice.SETTLEMENT_CHOICES)
+                                   else 'cash')
+        if invoice.settlement_type == 'cash':
+            invoice.paid_amount = 0  # normalized to full total at issue below
+        else:
+            invoice.paid_amount = parse_int(request.POST.get('paid_amount'), 0)
+        invoice.due_date = parse_jalali_date(request.POST.get('due_date', ''))
+        invoice.notes = request.POST.get('notes', '')
+        invoice.save()
+        invoice.items.all().delete()
+        for item in items:
+            InvoiceItem.objects.create(invoice=invoice, **item)
+        recompute_totals(invoice)
+        if invoice.settlement_type == 'cash':
+            invoice.paid_amount = invoice.total
+            invoice.save(update_fields=['paid_amount'])
+        return invoice
+
+
+class AdminInvoiceCreateView(PanelPermissionMixin, _InvoiceFormMixin, View):
+    permission_required = 'orders.add_invoice'
+
     def get(self, request):
-        return self._render(request)
+        from django.shortcuts import render
+        doc_type = request.GET.get('type', 'sale')
+        if doc_type not in dict(Invoice.DOC_TYPE_CHOICES):
+            doc_type = 'sale'
+        return render(request, self.template_name, self._form_context(request, doc_type=doc_type))
 
-    @transaction.atomic
     def post(self, request):
-        customer_name = request.POST.get('customer_name', '').strip()
-        customer_mobile = request.POST.get('customer_mobile', '').strip()
-        customer_address = request.POST.get('customer_address', '').strip()
-        discount = int(request.POST.get('discount') or 0)
-        tax = int(request.POST.get('tax') or 0)
-        notes = request.POST.get('notes', '')
-
-        product_ids = request.POST.getlist('product_id')
-        descriptions = request.POST.getlist('description')
-        quantities = request.POST.getlist('quantity')
-        unit_prices = request.POST.getlist('unit_price')
-
-        if not customer_name or not product_ids:
-            return self._render(request, error='نام مشتری و حداقل یک آیتم الزامی است.')
-
-        # Create backing order
-        customer, _ = User.objects.get_or_create(mobile=customer_mobile or '0000000000', defaults={'username': customer_mobile or 'walk-in'})
-        order = Order.objects.create(customer=customer, status='confirmed')
-
-        subtotal = 0
-        for pid, desc, qty, price in zip(product_ids, descriptions, quantities, unit_prices):
-            try:
-                product = Product.objects.get(pk=int(pid))
-                q = max(1, int(qty))
-                p = max(0, int(price))
-            except (Product.DoesNotExist, ValueError):
-                continue
-            OrderItem.objects.create(order=order, product=product, quantity=q, unit_price=p)
-            subtotal += q * p
-
-        order.total_amount = subtotal
-        order.save(update_fields=['total_amount'])
-
-        invoice = Invoice.objects.create(
-            order=order,
-            customer_name=customer_name,
-            customer_mobile=customer_mobile,
-            customer_address=customer_address,
-            subtotal=subtotal,
-            discount=discount,
-            tax=tax,
-            total=subtotal - discount + tax,
-            notes=notes,
-        )
-
-        for pid, desc, qty, price in zip(product_ids, descriptions, quantities, unit_prices):
-            try:
-                product = Product.objects.get(pk=int(pid))
-                q = max(1, int(qty))
-                p = max(0, int(price))
-            except (Product.DoesNotExist, ValueError):
-                continue
-            InvoiceItem.objects.create(invoice=invoice, product=product, description=desc, quantity=q, unit_price=p)
-
-        log_action(request.user, 'create', invoice)
+        token = request.POST.get('submission_token') or None
+        if token:
+            existing = Invoice.objects.filter(submission_token=token).first()
+            if existing:  # double submit → same document, no double issue
+                return redirect('admin_panel:invoice_detail', pk=existing.pk)
+        doc_type = request.POST.get('doc_type', 'sale')
+        if doc_type not in dict(Invoice.DOC_TYPE_CHOICES):
+            doc_type = 'sale'
+        invoice = Invoice(doc_type=doc_type, status='draft', submission_token=token)
+        try:
+            with transaction.atomic():
+                self._apply_post(request, invoice)
+                if request.POST.get('action') == 'issue':
+                    if not request.user.has_perm('orders.change_invoice'):
+                        raise InvoiceError('دسترسی صدور سند را ندارید.')
+                    invoice = issue_invoice(invoice, request.user)
+                    messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
+                else:
+                    log_action(request.user, 'create', invoice)
+                    messages.success(request, 'پیش‌نویس ذخیره شد.')
+        except (InvoiceError, StockError, LedgerError) as exc:
+            messages.error(request, str(exc))
+            from django.shortcuts import render
+            return render(request, self.template_name, self._form_context(request, doc_type=doc_type))
         return redirect('admin_panel:invoice_detail', pk=invoice.pk)
 
-    def _render(self, request, error=None):
+
+class AdminInvoiceEditView(PanelPermissionMixin, _InvoiceFormMixin, View):
+    permission_required = 'orders.change_invoice'
+
+    def get_invoice(self, pk):
+        return get_object_or_404(Invoice.objects.prefetch_related('items__product'), pk=pk)
+
+    def get(self, request, pk):
         from django.shortcuts import render
-        products = Product.objects.filter(is_active=True).order_by('name')
-        return render(request, self.template_name, {
-            'products': products,
-            'error': error,
-            'page_title': 'فاکتور جدید',
-        })
+        invoice = self.get_invoice(pk)
+        if not invoice.is_editable:
+            messages.error(request, 'فقط پیش‌نویس‌ها قابل ویرایش هستند؛ سند صادرشده را باطل کنید.')
+            return redirect('admin_panel:invoice_detail', pk=invoice.pk)
+        return render(request, self.template_name, self._form_context(request, invoice=invoice))
+
+    def post(self, request, pk):
+        invoice = self.get_invoice(pk)
+        if not invoice.is_editable:
+            messages.error(request, 'فقط پیش‌نویس‌ها قابل ویرایش هستند.')
+            return redirect('admin_panel:invoice_detail', pk=invoice.pk)
+        before = model_snapshot(invoice)
+        try:
+            with transaction.atomic():
+                self._apply_post(request, invoice)
+                if request.POST.get('action') == 'issue':
+                    invoice = issue_invoice(invoice, request.user)
+                    messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
+                else:
+                    log_action(request.user, 'update', invoice, before=before, after=model_snapshot(invoice))
+                    messages.success(request, 'پیش‌نویس بروزرسانی شد.')
+        except (InvoiceError, StockError, LedgerError) as exc:
+            messages.error(request, str(exc))
+            from django.shortcuts import render
+            invoice.refresh_from_db()
+            return render(request, self.template_name, self._form_context(request, invoice=invoice))
+        return redirect('admin_panel:invoice_detail', pk=invoice.pk)
 
 
 class AdminInvoiceDetailView(PanelPermissionMixin, DetailView):
@@ -544,82 +710,70 @@ class AdminInvoiceDetailView(PanelPermissionMixin, DetailView):
     context_object_name = 'invoice'
 
     def get_queryset(self):
-        return Invoice.objects.select_related('order__customer').prefetch_related('items__product')
+        return Invoice.objects.select_related('party', 'issued_by').prefetch_related('items__product')
 
 
-class AdminInvoiceEditView(PanelPermissionMixin, View):
+class AdminInvoiceIssueView(PanelPermissionMixin, View):
     permission_required = 'orders.change_invoice'
-    template_name = 'admin_panel/invoices/invoice_form.html'
 
-    def get(self, request, pk):
-        invoice = get_object_or_404(Invoice.objects.prefetch_related('items__product'), pk=pk)
-        products = Product.objects.filter(is_active=True).order_by('name')
-        from django.shortcuts import render
-        return render(request, self.template_name, {
-            'invoice': invoice,
-            'products': products,
-            'page_title': f'ویرایش فاکتور {invoice.invoice_number}',
-            'edit_mode': True,
-        })
-
-    @transaction.atomic
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
-        before = model_snapshot(invoice)
-        invoice.customer_name = request.POST.get('customer_name', '')
-        invoice.customer_mobile = request.POST.get('customer_mobile', '')
-        invoice.customer_address = request.POST.get('customer_address', '')
-        invoice.discount = int(request.POST.get('discount') or 0)
-        invoice.tax = int(request.POST.get('tax') or 0)
-        invoice.notes = request.POST.get('notes', '')
-        invoice.is_paid = 'is_paid' in request.POST
+        try:
+            invoice = issue_invoice(invoice, request.user)
+            messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
+        except (InvoiceError, StockError, LedgerError) as exc:
+            messages.error(request, str(exc))
+        return redirect('admin_panel:invoice_detail', pk=pk)
 
-        invoice.items.all().delete()
 
-        product_ids = request.POST.getlist('product_id')
-        descriptions = request.POST.getlist('description')
-        quantities = request.POST.getlist('quantity')
-        unit_prices = request.POST.getlist('unit_price')
+class AdminInvoiceCancelView(PanelPermissionMixin, View):
+    permission_required = 'orders.delete_invoice'
 
-        subtotal = 0
-        for pid, desc, qty, price in zip(product_ids, descriptions, quantities, unit_prices):
-            try:
-                product = Product.objects.get(pk=int(pid))
-                q = max(1, int(qty))
-                p = max(0, int(price))
-            except (Product.DoesNotExist, ValueError):
-                continue
-            InvoiceItem.objects.create(invoice=invoice, product=product, description=desc, quantity=q, unit_price=p)
-            subtotal += q * p
-
-        invoice.subtotal = subtotal
-        invoice.total = subtotal - invoice.discount + invoice.tax
-        invoice.save()
-        log_action(request.user, 'update', invoice, before=before, after=model_snapshot(invoice))
-        return redirect('admin_panel:invoice_detail', pk=invoice.pk)
+    def post(self, request, pk):
+        invoice = get_object_or_404(Invoice, pk=pk)
+        try:
+            invoice = cancel_invoice(invoice, request.user)
+            messages.success(request, f'سند {invoice.invoice_number} باطل شد و آثار مالی آن برگشت خورد.')
+        except (InvoiceError, StockError) as exc:
+            messages.error(request, str(exc))
+        return redirect('admin_panel:invoice_detail', pk=pk)
 
 
 class AdminInvoiceDeleteView(PanelPermissionMixin, View):
+    """Hard delete is for drafts only; issued documents go through cancel."""
     permission_required = 'orders.delete_invoice'
+
     @transaction.atomic
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
+        if invoice.status != 'draft':
+            messages.error(request, 'سند صادرشده حذف نمی‌شود؛ آن را باطل کنید.')
+            return redirect('admin_panel:invoice_detail', pk=pk)
         log_action(request.user, 'delete', invoice, before=model_snapshot(invoice))
         invoice.delete()
+        messages.success(request, 'پیش‌نویس حذف شد.')
         return redirect('admin_panel:invoice_list')
 
 
 class AdminInvoicePDFView(PanelPermissionMixin, View):
+    """?official=1 → official layout (VAT/legal fields), else simple receipt."""
     permission_required = 'orders.view_invoice'
+
     def get(self, request, pk):
         invoice = get_object_or_404(
-            Invoice.objects.select_related('order__customer').prefetch_related('items__product'), pk=pk
-        )
-        html = render_to_string('orders/invoice_pdf.html', {'invoice': invoice})
+            Invoice.objects.select_related('party').prefetch_related('items__product'), pk=pk)
+        official = request.GET.get('official') == '1'
+        template = 'orders/invoice_pdf_official.html' if official else 'orders/invoice_pdf.html'
+        from admin_panel.models import SiteSetting
+        html = render_to_string(template, {
+            'invoice': invoice,
+            'site': SiteSetting.load(),
+        }, request=request)
         from weasyprint import HTML
         pdf = HTML(string=html).write_pdf()
         response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'inline; filename="invoice-{invoice.invoice_number}.pdf"'
+        label = 'official' if official else 'receipt'
+        response['Content-Disposition'] = f'inline; filename="invoice-{invoice.invoice_number}-{label}.pdf"'
         return response
 
 

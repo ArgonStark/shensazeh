@@ -105,18 +105,6 @@ class InvoiceListView(PanelPermissionMixin, ListView):
         return Invoice.objects.select_related('order__customer')
 
 
-class InvoiceCreateView(PanelPermissionMixin, CreateView):
-    """Staff only: create an invoice."""
-    permission_required = 'orders.add_invoice'
-    model = Invoice
-    template_name = 'orders/invoice_create.html'
-    fields = [
-        'order', 'customer_name', 'customer_mobile',
-        'customer_address', 'subtotal', 'discount', 'tax', 'total', 'notes',
-    ]
-    success_url = reverse_lazy('orders:invoice_list')
-
-
 class InvoiceDetailView(LoginRequiredMixin, DetailView):
     """Single invoice: staff with view permission, or the owning customer."""
     model = Invoice
@@ -128,20 +116,6 @@ class InvoiceDetailView(LoginRequiredMixin, DetailView):
         if self.request.user.has_perm('orders.view_invoice'):
             return qs
         return qs.filter(order__customer=self.request.user)
-
-
-class InvoiceEditView(PanelPermissionMixin, UpdateView):
-    """Staff only: edit an invoice."""
-    permission_required = 'orders.change_invoice'
-    model = Invoice
-    template_name = 'orders/invoice_create.html'
-    fields = [
-        'customer_name', 'customer_mobile', 'customer_address',
-        'subtotal', 'discount', 'tax', 'total', 'notes', 'is_paid',
-    ]
-
-    def get_success_url(self):
-        return reverse_lazy('orders:invoice_detail', kwargs={'pk': self.object.pk})
 
 
 class InvoicePDFView(PanelPermissionMixin, View):

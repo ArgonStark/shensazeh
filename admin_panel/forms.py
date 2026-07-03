@@ -163,6 +163,8 @@ class SiteSettingForm(forms.ModelForm):
             'site_name', 'tagline', 'about_text',
             'phone', 'email', 'address', 'working_hours', 'shipping_note',
             'instagram', 'telegram', 'whatsapp', 'linkedin', 'copyright_text',
+            'vat_rate', 'legal_name', 'economic_code', 'national_id',
+            'registration_number', 'postal_code',
         ]
         widgets = {
             'site_name': forms.TextInput(attrs={'class': TW['input']}),
@@ -178,6 +180,12 @@ class SiteSettingForm(forms.ModelForm):
             'whatsapp': forms.URLInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'https://wa.me/...'}),
             'linkedin': forms.URLInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'https://linkedin.com/...'}),
             'copyright_text': forms.TextInput(attrs={'class': TW['input']}),
+            'vat_rate': forms.NumberInput(attrs={'class': TW['input'], 'min': 0, 'max': 100}),
+            'legal_name': forms.TextInput(attrs={'class': TW['input']}),
+            'economic_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'national_id': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'registration_number': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'postal_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
         }
 
 

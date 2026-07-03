@@ -21,3 +21,11 @@ def toman_to_rial(toman: int) -> int:
 def format_amount(value: int) -> str:
     """Group digits with commas: 1500000 -> '1,500,000'."""
     return f'{int(value):,}'
+
+
+def percent_of(amount: int, rate_percent: int) -> int:
+    """Integer percentage with floor rounding — the single VAT rounding rule.
+
+    e.g. percent_of(1_000_005, 10) == 100_000 (sub-Rial fractions drop).
+    """
+    return (int(amount) * int(rate_percent)) // 100

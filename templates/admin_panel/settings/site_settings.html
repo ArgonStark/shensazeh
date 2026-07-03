@@ -102,6 +102,38 @@
                 {{ form.copyright_text }}
             </div>
         </div>
+
+        {# --- Invoicing & legal identity --- #}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+            <h3 class="text-lg font-semibold text-gray-800">فاکتور و مشخصات قانونی</h3>
+            <p class="text-xs text-gray-400">این اطلاعات روی فاکتور رسمی چاپ می‌شود.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="{{ form.vat_rate.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.vat_rate.label }}</label>
+                    {{ form.vat_rate }}
+                </div>
+                <div>
+                    <label for="{{ form.legal_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.legal_name.label }}</label>
+                    {{ form.legal_name }}
+                </div>
+                <div>
+                    <label for="{{ form.economic_code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.economic_code.label }}</label>
+                    {{ form.economic_code }}
+                </div>
+                <div>
+                    <label for="{{ form.national_id.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.national_id.label }}</label>
+                    {{ form.national_id }}
+                </div>
+                <div>
+                    <label for="{{ form.registration_number.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.registration_number.label }}</label>
+                    {{ form.registration_number }}
+                </div>
+                <div>
+                    <label for="{{ form.postal_code.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">{{ form.postal_code.label }}</label>
+                    {{ form.postal_code }}
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="flex items-center gap-3">

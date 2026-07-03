@@ -30,6 +30,14 @@ class SiteSetting(models.Model):
     copyright_text = models.CharField('متن کپی‌رایت', max_length=300, blank=True,
                                       default='تمامی حقوق مادی و معنوی این وب‌سایت متعلق به فروشگاه شن‌سازه می‌باشد.')
 
+    # Invoicing / legal identity (printed on official invoices)
+    vat_rate = models.PositiveSmallIntegerField('نرخ پیش‌فرض مالیات بر ارزش افزوده (٪)', default=10)
+    legal_name = models.CharField('نام رسمی فروشنده', max_length=200, blank=True)
+    economic_code = models.CharField('کد اقتصادی', max_length=20, blank=True)
+    national_id = models.CharField('شناسه ملی', max_length=20, blank=True)
+    registration_number = models.CharField('شماره ثبت', max_length=20, blank=True)
+    postal_code = models.CharField('کد پستی', max_length=10, blank=True)
+
     updated_at = models.DateTimeField('آخرین بروزرسانی', auto_now=True)
 
     class Meta:

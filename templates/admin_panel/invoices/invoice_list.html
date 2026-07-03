@@ -1,6 +1,5 @@
 {% extends 'admin_panel/base.html' %}
 {% load static %}
-{% load humanize %}
 {% load finance_tags %}
 
 {% block title %}فاکتورها{% endblock %}
@@ -8,47 +7,51 @@
 {% block page_header %}
 <div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
     <div>
-        <h1 class="text-2xl font-bold text-gray-800">فاکتورها</h1>
-        <p class="text-sm text-gray-500 mt-1">مدیریت فاکتورهای فروش</p>
+        <h1 class="text-2xl font-bold text-gray-800">فاکتورها و اسناد</h1>
+        <p class="text-sm text-gray-500 mt-1">فروش، خرید، برگشتی‌ها و پیش‌فاکتورها</p>
     </div>
-    <a href="{% url 'admin_panel:invoice_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-        </svg>
-        فاکتور جدید
-    </a>
+    <div class="flex items-center gap-2 flex-wrap">
+        <a href="{% url 'admin_panel:invoice_export' %}?{{ querystring }}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            خروجی اکسل
+        </a>
+        {% if perms.orders.add_invoice %}
+        <a href="{% url 'admin_panel:invoice_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            سند جدید
+        </a>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<div x-data="{ deleteModal: false, deleteUrl: '' }">
+<div class="space-y-4">
 
     {# --- Filters --- #}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-                <input type="text" name="q" value="{{ request.GET.q }}" placeholder="جستجو (شماره، مشتری)..." class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-            </div>
-            <div>
-                <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="از تاریخ">
-            </div>
-            <div>
-                <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" placeholder="تا تاریخ">
-            </div>
-            <div>
-                <select name="status" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                    <option value="">وضعیت پرداخت</option>
-                    <option value="paid" {% if request.GET.status == 'paid' %}selected{% endif %}>پرداخت شده</option>
-                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>در انتظار</option>
-                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>لغو شده</option>
-                </select>
-            </div>
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition text-sm font-medium">فیلتر</button>
-                <a href="{% url 'admin_panel:invoice_list' %}" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition text-sm font-medium">پاک</a>
-            </div>
-        </form>
-    </div>
+    <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <input type="text" name="q" value="{{ f_q }}" placeholder="شماره، نام یا موبایل..."
+               class="lg:col-span-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        <select name="type" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <option value="">همه انواع</option>
+            {% for value, label in doc_type_choices %}
+            <option value="{{ value }}" {% if f_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="status" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <option value="">همه وضعیت‌ها</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if f_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="from" value="{{ f_from }}" placeholder="از تاریخ 1404/01/01" dir="ltr"
+               class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+        <div class="flex gap-2">
+            <input type="text" name="to" value="{{ f_to }}" placeholder="تا تاریخ" dir="ltr"
+                   class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">فیلتر</button>
+        </div>
+    </form>
 
     {# --- Table --- #}
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -57,99 +60,56 @@
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th class="px-4 py-3 text-right text-gray-600 font-medium">شماره</th>
-                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مشتری</th>
-                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مبلغ</th>
-                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت پرداخت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">طرف حساب</th>
                         <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
-                        <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">جمع کل</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تسویه</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for invoice in invoices %}
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="px-4 py-3 font-mono font-medium text-gray-800">#{{ invoice.number }}</td>
-                        <td class="px-4 py-3 text-gray-700">{{ invoice.customer_name }}</td>
-                        <td class="px-4 py-3 text-gray-700">{{ invoice.total|toman }} تومان</td>
+                    <tr class="hover:bg-gray-50 transition cursor-pointer" onclick="window.location='{% url 'admin_panel:invoice_detail' invoice.pk %}'">
+                        <td class="px-4 py-3 font-mono text-xs text-indigo-700" dir="ltr">{{ invoice.invoice_number }}</td>
                         <td class="px-4 py-3">
-                            {% if invoice.payment_status == 'paid' %}
-                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">پرداخت شده</span>
-                            {% elif invoice.payment_status == 'pending' %}
-                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">در انتظار</span>
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full
+                                {% if invoice.doc_type == 'sale' %}bg-blue-100 text-blue-700
+                                {% elif invoice.doc_type == 'purchase' %}bg-amber-100 text-amber-700
+                                {% elif invoice.doc_type == 'proforma' %}bg-gray-100 text-gray-600
+                                {% else %}bg-purple-100 text-purple-700{% endif %}">
+                                {{ invoice.get_doc_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-800">{{ invoice.customer_name|default:invoice.party.name|default:'—' }}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ invoice.created_at|date:'Y/m/d' }}</td>
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ invoice.total|toman }} <span class="text-xs text-gray-400">تومان</span></td>
+                        <td class="px-4 py-3">
+                            {% if invoice.status == 'issued' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">صادر شده</span>
+                            {% elif invoice.status == 'draft' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">پیش‌نویس</span>
                             {% else %}
-                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">لغو شده</span>
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">باطل شده</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-gray-500 text-xs">{{ invoice.created_at|date:"Y/m/d" }}</td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-1">
-                                <a href="{% url 'admin_panel:invoice_detail' invoice.pk %}" class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="مشاهده">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                </a>
-                                <a href="{% url 'admin_panel:invoice_edit' invoice.pk %}" class="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition" title="ویرایش">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                    </svg>
-                                </a>
-                                <a href="{% url 'admin_panel:invoice_pdf' invoice.pk %}" class="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition" title="PDF">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                                    </svg>
-                                </a>
-                                <button @click="deleteUrl = '{% url 'admin_panel:invoice_delete' invoice.pk %}'; deleteModal = true" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="حذف">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                    </svg>
-                                </button>
-                            </div>
+                            {% if invoice.status != 'issued' %}
+                            <span class="text-gray-300">—</span>
+                            {% elif invoice.is_paid %}
+                            <span class="text-green-600 text-xs font-medium">تسویه</span>
+                            {% else %}
+                            <span class="text-red-600 text-xs font-medium">{{ invoice.remaining_amount|toman }} تومان مانده</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="6" class="px-4 py-12 text-center text-gray-400">فاکتوری ثبت نشده است</td>
-                    </tr>
+                    <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">سندی یافت نشد</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        {# Pagination #}
-        {% if invoices.has_other_pages %}
-        <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-center gap-1">
-            {% if invoices.has_previous %}
-            <a href="?page={{ invoices.previous_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">قبلی</a>
-            {% endif %}
-            {% for num in invoices.paginator.page_range %}
-                {% if invoices.number == num %}
-                <span class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white font-medium">{{ num }}</span>
-                {% elif num > invoices.number|add:'-3' and num < invoices.number|add:'3' %}
-                <a href="?page={{ num }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">{{ num }}</a>
-                {% endif %}
-            {% endfor %}
-            {% if invoices.has_next %}
-            <a href="?page={{ invoices.next_page_number }}" class="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600 transition">بعدی</a>
-            {% endif %}
-        </div>
-        {% endif %}
+        {% include 'admin_panel/components/pagination.html' %}
     </div>
-
-    {# Delete Modal #}
-    <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
-        <div class="fixed inset-0 bg-black/50" @click="deleteModal = false"></div>
-        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative z-10">
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">حذف فاکتور</h3>
-            <p class="text-sm text-gray-500 mb-6">آیا از حذف این فاکتور اطمینان دارید؟</p>
-            <div class="flex items-center gap-3 justify-end">
-                <button @click="deleteModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
-                <form :action="deleteUrl" method="post" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition">حذف</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
 </div>
 {% endblock %}
