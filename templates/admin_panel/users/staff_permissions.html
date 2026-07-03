@@ -1,0 +1,64 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">دسترسی‌های {{ staff.user.get_full_name|default:staff.user.mobile }}</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            نقش: {{ staff.get_role_display }}
+            <span class="text-gray-300 mx-1">|</span>
+            <span dir="ltr" class="font-mono text-xs">{{ staff.user.mobile }}</span>
+        </p>
+    </div>
+    <a href="{% url 'admin_panel:staff_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+        بازگشت به کارکنان
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="post" class="max-w-3xl">
+    {% csrf_token %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">بخش</th>
+                        {% for label in action_labels %}
+                        <th class="px-4 py-3 text-center text-gray-600 font-medium">{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in rows %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ row.label }}</td>
+                        {% for cell in row.cells %}
+                        <td class="px-4 py-3 text-center">
+                            {% if cell.available %}
+                            <input type="checkbox" name="{{ row.key }}:{{ cell.action }}"
+                                   {% if cell.granted %}checked{% endif %}
+                                   class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                            {% else %}
+                            <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="flex items-center gap-3 mt-4">
+        <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">
+            ذخیره دسترسی‌ها
+        </button>
+        <p class="text-xs text-gray-400">دسترسی‌ها بلافاصله و در سمت سرور روی همه صفحات اعمال می‌شود.</p>
+    </div>
+</form>
+{% endblock %}

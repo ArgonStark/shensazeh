@@ -46,6 +46,9 @@ urlpatterns = [
     path('staff/', views.AdminStaffListView.as_view(), name='staff_list'),
     path('staff/create/', views.AdminStaffCreateView.as_view(), name='staff_create'),
     path('staff/<int:pk>/delete/', views.AdminStaffDeleteView.as_view(), name='staff_delete'),
+    path('staff/<int:pk>/permissions/', views.AdminStaffPermissionsView.as_view(), name='staff_permissions'),
+    # Audit
+    path('audit/', views.AdminAuditLogListView.as_view(), name='audit_list'),
     # Services
     path('services/', views.AdminServiceListView.as_view(), name='service_list'),
     path('services/create/', views.AdminServiceCreateView.as_view(), name='service_create'),

@@ -6,6 +6,8 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 
+from admin_panel.views import PanelPermissionMixin
+
 from .models import Order, OrderItem, Invoice, InvoiceItem
 
 
@@ -91,8 +93,9 @@ class OrderCreateView(LoginRequiredMixin, View):
 
 # ----- Invoice Views -----
 
-class InvoiceListView(StaffRequiredMixin, ListView):
+class InvoiceListView(PanelPermissionMixin, ListView):
     """Staff only: list invoices."""
+    permission_required = 'orders.view_invoice'
     model = Invoice
     template_name = 'orders/invoice_list.html'
     context_object_name = 'invoices'
@@ -102,8 +105,9 @@ class InvoiceListView(StaffRequiredMixin, ListView):
         return Invoice.objects.select_related('order__customer')
 
 
-class InvoiceCreateView(StaffRequiredMixin, CreateView):
+class InvoiceCreateView(PanelPermissionMixin, CreateView):
     """Staff only: create an invoice."""
+    permission_required = 'orders.add_invoice'
     model = Invoice
     template_name = 'orders/invoice_create.html'
     fields = [
@@ -113,18 +117,22 @@ class InvoiceCreateView(StaffRequiredMixin, CreateView):
     success_url = reverse_lazy('orders:invoice_list')
 
 
-class InvoiceDetailView(DetailView):
-    """View a single invoice."""
+class InvoiceDetailView(LoginRequiredMixin, DetailView):
+    """Single invoice: staff with view permission, or the owning customer."""
     model = Invoice
     template_name = 'orders/invoice_detail.html'
     context_object_name = 'invoice'
 
     def get_queryset(self):
-        return Invoice.objects.select_related('order__customer').prefetch_related('items__product')
+        qs = Invoice.objects.select_related('order__customer').prefetch_related('items__product')
+        if self.request.user.has_perm('orders.view_invoice'):
+            return qs
+        return qs.filter(order__customer=self.request.user)
 
 
-class InvoiceEditView(StaffRequiredMixin, UpdateView):
+class InvoiceEditView(PanelPermissionMixin, UpdateView):
     """Staff only: edit an invoice."""
+    permission_required = 'orders.change_invoice'
     model = Invoice
     template_name = 'orders/invoice_create.html'
     fields = [
@@ -136,8 +144,9 @@ class InvoiceEditView(StaffRequiredMixin, UpdateView):
         return reverse_lazy('orders:invoice_detail', kwargs={'pk': self.object.pk})
 
 
-class InvoicePDFView(StaffRequiredMixin, View):
+class InvoicePDFView(PanelPermissionMixin, View):
     """Generate a PDF of an invoice using WeasyPrint."""
+    permission_required = 'orders.view_invoice'
 
     def get(self, request, pk):
         invoice = get_object_or_404(

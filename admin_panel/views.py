@@ -1,7 +1,9 @@
 import json
 import anthropic
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.db import transaction
 from django.db.models import Sum, Count, Q, F
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -14,11 +16,14 @@ from django.views.generic import TemplateView, ListView, CreateView, UpdateView,
 from accounts.models import User, StaffProfile
 from blog.models import BlogPost, BlogComment, Announcement
 from dashboard.models import SiteVisit
+from finance.audit import log_action, model_snapshot
+from finance.models import AuditLog
 from inventory.models import InventoryEntry
 from orders.models import Order, OrderItem, Invoice, InvoiceItem
 from services.models import Service, Project, ProjectImage
 from store.models import Category, Product, ProductImage, ProductReview
 
+from . import permissions as panel_permissions
 from .forms import (
     ProductForm, CategoryForm, InventoryEntryForm, InvoiceForm,
     BlogPostForm, AnnouncementForm, ServiceForm, ProjectForm, StaffForm,
@@ -32,6 +37,24 @@ class StaffRequiredMixin(UserPassesTestMixin):
         return self.request.user.is_authenticated and (
             self.request.user.is_superuser or self.request.user.is_staff
         )
+
+
+class PanelPermissionMixin(StaffRequiredMixin):
+    """Staff gate + a required Django permission, checked server-side per view.
+
+    Authenticated staff without the permission get a 403 (handled by
+    UserPassesTestMixin); anonymous users are redirected to login.
+    """
+    permission_required = None
+
+    def test_func(self):
+        if not super().test_func():
+            return False
+        if not self.permission_required:
+            return True
+        required = ([self.permission_required]
+                    if isinstance(self.permission_required, str) else self.permission_required)
+        return self.request.user.has_perms(required)
 
 
 # ─── Dashboard ───────────────────────────────────────────────
@@ -87,7 +110,8 @@ class AdminDashboardView(StaffRequiredMixin, TemplateView):
 
 # ─── Products ────────────────────────────────────────────────
 
-class AdminProductListView(StaffRequiredMixin, ListView):
+class AdminProductListView(PanelPermissionMixin, ListView):
+    permission_required = 'store.view_product'
     template_name = 'admin_panel/store/product_list.html'
     context_object_name = 'products'
     paginate_by = 20
@@ -118,7 +142,8 @@ class AdminProductListView(StaffRequiredMixin, ListView):
         return ctx
 
 
-class AdminProductCreateView(StaffRequiredMixin, CreateView):
+class AdminProductCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'store.add_product'
     template_name = 'admin_panel/store/product_form.html'
     form_class = ProductForm
     success_url = reverse_lazy('admin_panel:product_list')
@@ -136,7 +161,8 @@ class AdminProductCreateView(StaffRequiredMixin, CreateView):
         return ctx
 
 
-class AdminProductEditView(StaffRequiredMixin, UpdateView):
+class AdminProductEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'store.change_product'
     model = Product
     template_name = 'admin_panel/store/product_form.html'
     form_class = ProductForm
@@ -159,7 +185,8 @@ class AdminProductEditView(StaffRequiredMixin, UpdateView):
         return ctx
 
 
-class AdminProductDeleteView(StaffRequiredMixin, DeleteView):
+class AdminProductDeleteView(PanelPermissionMixin, DeleteView):
+    permission_required = 'store.delete_product'
     model = Product
     success_url = reverse_lazy('admin_panel:product_list')
 
@@ -169,7 +196,8 @@ class AdminProductDeleteView(StaffRequiredMixin, DeleteView):
 
 # ─── Categories ──────────────────────────────────────────────
 
-class AdminCategoryListView(StaffRequiredMixin, ListView):
+class AdminCategoryListView(PanelPermissionMixin, ListView):
+    permission_required = 'store.view_category'
     template_name = 'admin_panel/store/category_list.html'
     context_object_name = 'categories'
 
@@ -177,21 +205,24 @@ class AdminCategoryListView(StaffRequiredMixin, ListView):
         return Category.objects.filter(parent__isnull=True).prefetch_related('children').annotate(product_count=Count('products'))
 
 
-class AdminCategoryCreateView(StaffRequiredMixin, CreateView):
+class AdminCategoryCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'store.add_category'
     model = Category
     form_class = CategoryForm
     template_name = 'admin_panel/store/category_form.html'
     success_url = reverse_lazy('admin_panel:category_list')
 
 
-class AdminCategoryEditView(StaffRequiredMixin, UpdateView):
+class AdminCategoryEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'store.change_category'
     model = Category
     form_class = CategoryForm
     template_name = 'admin_panel/store/category_form.html'
     success_url = reverse_lazy('admin_panel:category_list')
 
 
-class AdminCategoryDeleteView(StaffRequiredMixin, DeleteView):
+class AdminCategoryDeleteView(PanelPermissionMixin, DeleteView):
+    permission_required = 'store.delete_category'
     model = Category
     success_url = reverse_lazy('admin_panel:category_list')
 
@@ -201,7 +232,8 @@ class AdminCategoryDeleteView(StaffRequiredMixin, DeleteView):
 
 # ─── Reviews ─────────────────────────────────────────────────
 
-class AdminReviewListView(StaffRequiredMixin, ListView):
+class AdminReviewListView(PanelPermissionMixin, ListView):
+    permission_required = 'store.view_productreview'
     template_name = 'admin_panel/store/review_list.html'
     context_object_name = 'reviews'
     paginate_by = 20
@@ -216,7 +248,8 @@ class AdminReviewListView(StaffRequiredMixin, ListView):
         return qs
 
 
-class AdminReviewApproveView(StaffRequiredMixin, View):
+class AdminReviewApproveView(PanelPermissionMixin, View):
+    permission_required = 'store.change_productreview'
     def post(self, request, pk):
         review = get_object_or_404(ProductReview, pk=pk)
         review.is_approved = True
@@ -224,7 +257,8 @@ class AdminReviewApproveView(StaffRequiredMixin, View):
         return redirect('admin_panel:review_list')
 
 
-class AdminReviewDeleteView(StaffRequiredMixin, View):
+class AdminReviewDeleteView(PanelPermissionMixin, View):
+    permission_required = 'store.delete_productreview'
     def post(self, request, pk):
         get_object_or_404(ProductReview, pk=pk).delete()
         return redirect('admin_panel:review_list')
@@ -232,7 +266,8 @@ class AdminReviewDeleteView(StaffRequiredMixin, View):
 
 # ─── Inventory ───────────────────────────────────────────────
 
-class AdminInventoryListView(StaffRequiredMixin, ListView):
+class AdminInventoryListView(PanelPermissionMixin, ListView):
+    permission_required = 'inventory.view_inventoryentry'
     template_name = 'admin_panel/inventory/inventory_list.html'
     context_object_name = 'entries'
     paginate_by = 30
@@ -245,7 +280,8 @@ class AdminInventoryListView(StaffRequiredMixin, ListView):
         return qs
 
 
-class AdminInventoryCreateView(StaffRequiredMixin, CreateView):
+class AdminInventoryCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'inventory.add_inventoryentry'
     model = InventoryEntry
     form_class = InventoryEntryForm
     template_name = 'admin_panel/inventory/inventory_form.html'
@@ -254,6 +290,7 @@ class AdminInventoryCreateView(StaffRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
+        log_action(self.request.user, 'create', form.instance)
         if form.instance.entry_type == 'in':
             try:
                 from telegram_bot.service import send_product_notification
@@ -263,7 +300,8 @@ class AdminInventoryCreateView(StaffRequiredMixin, CreateView):
         return response
 
 
-class AdminInventoryReportView(StaffRequiredMixin, TemplateView):
+class AdminInventoryReportView(PanelPermissionMixin, TemplateView):
+    permission_required = 'inventory.view_inventoryentry'
     template_name = 'admin_panel/inventory/inventory_report.html'
 
     def get_context_data(self, **kwargs):
@@ -278,7 +316,8 @@ class AdminInventoryReportView(StaffRequiredMixin, TemplateView):
 
 # ─── Invoices ────────────────────────────────────────────────
 
-class AdminInvoiceListView(StaffRequiredMixin, ListView):
+class AdminInvoiceListView(PanelPermissionMixin, ListView):
+    permission_required = 'orders.view_invoice'
     template_name = 'admin_panel/invoices/invoice_list.html'
     context_object_name = 'invoices'
     paginate_by = 20
@@ -296,12 +335,14 @@ class AdminInvoiceListView(StaffRequiredMixin, ListView):
         return qs
 
 
-class AdminInvoiceCreateView(StaffRequiredMixin, View):
+class AdminInvoiceCreateView(PanelPermissionMixin, View):
+    permission_required = 'orders.add_invoice'
     template_name = 'admin_panel/invoices/invoice_form.html'
 
     def get(self, request):
         return self._render(request)
 
+    @transaction.atomic
     def post(self, request):
         customer_name = request.POST.get('customer_name', '').strip()
         customer_mobile = request.POST.get('customer_mobile', '').strip()
@@ -357,6 +398,7 @@ class AdminInvoiceCreateView(StaffRequiredMixin, View):
                 continue
             InvoiceItem.objects.create(invoice=invoice, product=product, description=desc, quantity=q, unit_price=p)
 
+        log_action(request.user, 'create', invoice)
         return redirect('admin_panel:invoice_detail', pk=invoice.pk)
 
     def _render(self, request, error=None):
@@ -369,7 +411,8 @@ class AdminInvoiceCreateView(StaffRequiredMixin, View):
         })
 
 
-class AdminInvoiceDetailView(StaffRequiredMixin, DetailView):
+class AdminInvoiceDetailView(PanelPermissionMixin, DetailView):
+    permission_required = 'orders.view_invoice'
     model = Invoice
     template_name = 'admin_panel/invoices/invoice_detail.html'
     context_object_name = 'invoice'
@@ -378,7 +421,8 @@ class AdminInvoiceDetailView(StaffRequiredMixin, DetailView):
         return Invoice.objects.select_related('order__customer').prefetch_related('items__product')
 
 
-class AdminInvoiceEditView(StaffRequiredMixin, View):
+class AdminInvoiceEditView(PanelPermissionMixin, View):
+    permission_required = 'orders.change_invoice'
     template_name = 'admin_panel/invoices/invoice_form.html'
 
     def get(self, request, pk):
@@ -392,8 +436,10 @@ class AdminInvoiceEditView(StaffRequiredMixin, View):
             'edit_mode': True,
         })
 
+    @transaction.atomic
     def post(self, request, pk):
         invoice = get_object_or_404(Invoice, pk=pk)
+        before = model_snapshot(invoice)
         invoice.customer_name = request.POST.get('customer_name', '')
         invoice.customer_mobile = request.POST.get('customer_mobile', '')
         invoice.customer_address = request.POST.get('customer_address', '')
@@ -423,16 +469,22 @@ class AdminInvoiceEditView(StaffRequiredMixin, View):
         invoice.subtotal = subtotal
         invoice.total = subtotal - invoice.discount + invoice.tax
         invoice.save()
+        log_action(request.user, 'update', invoice, before=before, after=model_snapshot(invoice))
         return redirect('admin_panel:invoice_detail', pk=invoice.pk)
 
 
-class AdminInvoiceDeleteView(StaffRequiredMixin, View):
+class AdminInvoiceDeleteView(PanelPermissionMixin, View):
+    permission_required = 'orders.delete_invoice'
+    @transaction.atomic
     def post(self, request, pk):
-        get_object_or_404(Invoice, pk=pk).delete()
+        invoice = get_object_or_404(Invoice, pk=pk)
+        log_action(request.user, 'delete', invoice, before=model_snapshot(invoice))
+        invoice.delete()
         return redirect('admin_panel:invoice_list')
 
 
-class AdminInvoicePDFView(StaffRequiredMixin, View):
+class AdminInvoicePDFView(PanelPermissionMixin, View):
+    permission_required = 'orders.view_invoice'
     def get(self, request, pk):
         invoice = get_object_or_404(
             Invoice.objects.select_related('order__customer').prefetch_related('items__product'), pk=pk
@@ -447,7 +499,8 @@ class AdminInvoicePDFView(StaffRequiredMixin, View):
 
 # ─── Blog ────────────────────────────────────────────────────
 
-class AdminPostListView(StaffRequiredMixin, ListView):
+class AdminPostListView(PanelPermissionMixin, ListView):
+    permission_required = 'blog.view_blogpost'
     template_name = 'admin_panel/blog/post_list.html'
     context_object_name = 'posts'
     paginate_by = 20
@@ -456,7 +509,8 @@ class AdminPostListView(StaffRequiredMixin, ListView):
         return BlogPost.objects.select_related('author').order_by('-created_at')
 
 
-class AdminPostCreateView(StaffRequiredMixin, CreateView):
+class AdminPostCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'blog.add_blogpost'
     model = BlogPost
     form_class = BlogPostForm
     template_name = 'admin_panel/blog/post_form.html'
@@ -472,7 +526,8 @@ class AdminPostCreateView(StaffRequiredMixin, CreateView):
         return ctx
 
 
-class AdminPostEditView(StaffRequiredMixin, UpdateView):
+class AdminPostEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'blog.change_blogpost'
     model = BlogPost
     form_class = BlogPostForm
     template_name = 'admin_panel/blog/post_form.html'
@@ -484,13 +539,15 @@ class AdminPostEditView(StaffRequiredMixin, UpdateView):
         return ctx
 
 
-class AdminPostDeleteView(StaffRequiredMixin, View):
+class AdminPostDeleteView(PanelPermissionMixin, View):
+    permission_required = 'blog.delete_blogpost'
     def post(self, request, pk):
         get_object_or_404(BlogPost, pk=pk).delete()
         return redirect('admin_panel:post_list')
 
 
-class AdminPostTogglePublishView(StaffRequiredMixin, View):
+class AdminPostTogglePublishView(PanelPermissionMixin, View):
+    permission_required = 'blog.change_blogpost'
     def post(self, request, pk):
         post = get_object_or_404(BlogPost, pk=pk)
         post.is_published = not post.is_published
@@ -498,7 +555,8 @@ class AdminPostTogglePublishView(StaffRequiredMixin, View):
         return redirect('admin_panel:post_list')
 
 
-class AdminAnnouncementListView(StaffRequiredMixin, ListView):
+class AdminAnnouncementListView(PanelPermissionMixin, ListView):
+    permission_required = 'blog.view_announcement'
     template_name = 'admin_panel/blog/announcement_list.html'
     context_object_name = 'announcements'
 
@@ -506,21 +564,24 @@ class AdminAnnouncementListView(StaffRequiredMixin, ListView):
         return Announcement.objects.order_by('-created_at')
 
 
-class AdminAnnouncementCreateView(StaffRequiredMixin, CreateView):
+class AdminAnnouncementCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'blog.add_announcement'
     model = Announcement
     form_class = AnnouncementForm
     template_name = 'admin_panel/blog/announcement_form.html'
     success_url = reverse_lazy('admin_panel:announcement_list')
 
 
-class AdminAnnouncementEditView(StaffRequiredMixin, UpdateView):
+class AdminAnnouncementEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'blog.change_announcement'
     model = Announcement
     form_class = AnnouncementForm
     template_name = 'admin_panel/blog/announcement_form.html'
     success_url = reverse_lazy('admin_panel:announcement_list')
 
 
-class AdminAnnouncementDeleteView(StaffRequiredMixin, View):
+class AdminAnnouncementDeleteView(PanelPermissionMixin, View):
+    permission_required = 'blog.delete_announcement'
     def post(self, request, pk):
         get_object_or_404(Announcement, pk=pk).delete()
         return redirect('admin_panel:announcement_list')
@@ -528,7 +589,8 @@ class AdminAnnouncementDeleteView(StaffRequiredMixin, View):
 
 # ─── Users ───────────────────────────────────────────────────
 
-class AdminUserListView(StaffRequiredMixin, ListView):
+class AdminUserListView(PanelPermissionMixin, ListView):
+    permission_required = 'accounts.view_user'
     template_name = 'admin_panel/users/user_list.html'
     context_object_name = 'users'
     paginate_by = 20
@@ -541,7 +603,8 @@ class AdminUserListView(StaffRequiredMixin, ListView):
         return qs
 
 
-class AdminStaffListView(StaffRequiredMixin, ListView):
+class AdminStaffListView(PanelPermissionMixin, ListView):
+    permission_required = 'accounts.view_staffprofile'
     template_name = 'admin_panel/users/staff_list.html'
     context_object_name = 'staff_members'
 
@@ -554,7 +617,9 @@ class AdminStaffListView(StaffRequiredMixin, ListView):
         return ctx
 
 
-class AdminStaffCreateView(StaffRequiredMixin, View):
+class AdminStaffCreateView(PanelPermissionMixin, View):
+    permission_required = 'accounts.add_staffprofile'
+    @transaction.atomic
     def post(self, request):
         form = StaffForm(request.POST)
         if form.is_valid():
@@ -563,23 +628,116 @@ class AdminStaffCreateView(StaffRequiredMixin, View):
             user, _ = User.objects.get_or_create(mobile=mobile, defaults={'username': mobile})
             user.is_staff = True
             user.save(update_fields=['is_staff'])
-            StaffProfile.objects.update_or_create(user=user, defaults={'role': role, 'is_active_staff': True})
+            profile, created = StaffProfile.objects.get_or_create(
+                user=user, defaults={'role': role, 'is_active_staff': True})
+            role_changed = not created and profile.role != role
+            if not created:
+                profile.role = role
+                profile.is_active_staff = True
+                profile.save(update_fields=['role', 'is_active_staff'])
+            if created or role_changed:
+                # New role → reset permissions to that role's defaults;
+                # fine-tuning happens on the permissions screen afterwards.
+                panel_permissions.apply_role_defaults(user, role)
+            log_action(request.user, 'create' if created else 'update', profile)
         return redirect('admin_panel:staff_list')
 
 
-class AdminStaffDeleteView(StaffRequiredMixin, View):
+class AdminStaffDeleteView(PanelPermissionMixin, View):
+    permission_required = 'accounts.delete_staffprofile'
+    @transaction.atomic
     def post(self, request, pk):
         sp = get_object_or_404(StaffProfile, pk=pk)
+        before = model_snapshot(sp)
         sp.is_active_staff = False
         sp.save(update_fields=['is_active_staff'])
         sp.user.is_staff = False
         sp.user.save(update_fields=['is_staff'])
+        log_action(request.user, 'status', sp, before=before, after=model_snapshot(sp))
         return redirect('admin_panel:staff_list')
+
+
+class AdminStaffPermissionsView(PanelPermissionMixin, View):
+    """Grant/revoke per-module permissions for one staff member."""
+    permission_required = 'accounts.change_user'
+    template_name = 'admin_panel/users/staff_permissions.html'
+
+    def get(self, request, pk):
+        sp = get_object_or_404(StaffProfile.objects.select_related('user'), pk=pk)
+        return self._render(request, sp)
+
+    @transaction.atomic
+    def post(self, request, pk):
+        sp = get_object_or_404(StaffProfile.objects.select_related('user'), pk=pk)
+        user = sp.user
+        if user.is_superuser:
+            messages.error(request, 'دسترسی مدیر ارشد قابل ویرایش نیست.')
+            return redirect('admin_panel:staff_list')
+        before = {'permissions': panel_permissions.granted_cells(user)}
+        perms = []
+        for module in panel_permissions.MODULES:
+            for action in panel_permissions.module_actions(module):
+                if request.POST.get(f'{module}:{action}'):
+                    perms.extend(panel_permissions.get_permissions(module, action))
+        user.user_permissions.set(perms)
+        user = User.objects.get(pk=user.pk)  # fresh instance: has_perm caches per object
+        log_action(request.user, 'update', user,
+                   before=before, after={'permissions': panel_permissions.granted_cells(user)})
+        messages.success(request, 'دسترسی‌ها ذخیره شد.')
+        return redirect('admin_panel:staff_permissions', pk=sp.pk)
+
+    def _render(self, request, sp):
+        from django.shortcuts import render
+        matrix = panel_permissions.user_matrix(sp.user)
+        rows = []
+        for module, cfg in panel_permissions.MODULES.items():
+            available = panel_permissions.module_actions(module)
+            rows.append({
+                'key': module,
+                'label': cfg['label'],
+                'cells': [{
+                    'action': action,
+                    'label': panel_permissions.ACTION_LABELS[action],
+                    'available': action in available,
+                    'granted': matrix[module].get(action, False),
+                } for action in panel_permissions.ACTIONS],
+            })
+        return render(request, self.template_name, {
+            'staff': sp,
+            'rows': rows,
+            'action_labels': [panel_permissions.ACTION_LABELS[a] for a in panel_permissions.ACTIONS],
+            'page_title': f'دسترسی‌های {sp.user}',
+        })
+
+
+class AdminAuditLogListView(PanelPermissionMixin, ListView):
+    permission_required = 'finance.view_auditlog'
+    template_name = 'admin_panel/audit/log_list.html'
+    context_object_name = 'logs'
+    paginate_by = 30
+
+    def get_queryset(self):
+        qs = AuditLog.objects.select_related('actor', 'content_type')
+        action = self.request.GET.get('action', '').strip()
+        if action in dict(AuditLog.ACTION_CHOICES):
+            qs = qs.filter(action=action)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(object_repr__icontains=q)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['action_choices'] = AuditLog.ACTION_CHOICES
+        ctx['selected_action'] = self.request.GET.get('action', '')
+        ctx['q'] = self.request.GET.get('q', '')
+        return ctx
 
 
 # ─── Services & Projects ────────────────────────────────────
 
-class AdminServiceListView(StaffRequiredMixin, ListView):
+class AdminServiceListView(PanelPermissionMixin, ListView):
+    permission_required = 'services.view_service'
     template_name = 'admin_panel/services/service_list.html'
     context_object_name = 'services'
 
@@ -587,27 +745,31 @@ class AdminServiceListView(StaffRequiredMixin, ListView):
         return Service.objects.order_by('order')
 
 
-class AdminServiceCreateView(StaffRequiredMixin, CreateView):
+class AdminServiceCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'services.add_service'
     model = Service
     form_class = ServiceForm
     template_name = 'admin_panel/services/service_form.html'
     success_url = reverse_lazy('admin_panel:service_list')
 
 
-class AdminServiceEditView(StaffRequiredMixin, UpdateView):
+class AdminServiceEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'services.change_service'
     model = Service
     form_class = ServiceForm
     template_name = 'admin_panel/services/service_form.html'
     success_url = reverse_lazy('admin_panel:service_list')
 
 
-class AdminServiceDeleteView(StaffRequiredMixin, View):
+class AdminServiceDeleteView(PanelPermissionMixin, View):
+    permission_required = 'services.delete_service'
     def post(self, request, pk):
         get_object_or_404(Service, pk=pk).delete()
         return redirect('admin_panel:service_list')
 
 
-class AdminProjectListView(StaffRequiredMixin, ListView):
+class AdminProjectListView(PanelPermissionMixin, ListView):
+    permission_required = 'services.view_project'
     template_name = 'admin_panel/services/project_list.html'
     context_object_name = 'projects'
 
@@ -615,21 +777,24 @@ class AdminProjectListView(StaffRequiredMixin, ListView):
         return Project.objects.prefetch_related('images').order_by('-created_at')
 
 
-class AdminProjectCreateView(StaffRequiredMixin, CreateView):
+class AdminProjectCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'services.add_project'
     model = Project
     form_class = ProjectForm
     template_name = 'admin_panel/services/project_form.html'
     success_url = reverse_lazy('admin_panel:project_list')
 
 
-class AdminProjectEditView(StaffRequiredMixin, UpdateView):
+class AdminProjectEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'services.change_project'
     model = Project
     form_class = ProjectForm
     template_name = 'admin_panel/services/project_form.html'
     success_url = reverse_lazy('admin_panel:project_list')
 
 
-class AdminProjectDeleteView(StaffRequiredMixin, View):
+class AdminProjectDeleteView(PanelPermissionMixin, View):
+    permission_required = 'services.delete_project'
     def post(self, request, pk):
         get_object_or_404(Project, pk=pk).delete()
         return redirect('admin_panel:project_list')
@@ -637,7 +802,8 @@ class AdminProjectDeleteView(StaffRequiredMixin, View):
 
 # ─── Settings ────────────────────────────────────────────────
 
-class AdminSiteSettingsView(StaffRequiredMixin, View):
+class AdminSiteSettingsView(PanelPermissionMixin, View):
+    permission_required = 'admin_panel.change_sitesetting'
     template_name = 'admin_panel/settings/site_settings.html'
 
     def get(self, request):
@@ -652,9 +818,12 @@ class AdminSiteSettingsView(StaffRequiredMixin, View):
         from django.contrib import messages
         from .models import SiteSetting
         from .forms import SiteSettingForm
-        form = SiteSettingForm(request.POST, instance=SiteSetting.load())
+        instance = SiteSetting.load()
+        before = model_snapshot(instance)
+        form = SiteSettingForm(request.POST, instance=instance)
         if form.is_valid():
-            form.save()
+            obj = form.save()
+            log_action(request.user, 'update', obj, before=before, after=model_snapshot(obj))
             messages.success(request, 'تنظیمات با موفقیت ذخیره شد.')
             return redirect('admin_panel:site_settings')
         messages.error(request, 'لطفاً خطاهای فرم را برطرف کنید.')
@@ -663,7 +832,8 @@ class AdminSiteSettingsView(StaffRequiredMixin, View):
 
 # ─── AI Assist ───────────────────────────────────────────────
 
-class AdminAIAssistView(StaffRequiredMixin, View):
+class AdminAIAssistView(PanelPermissionMixin, View):
+    permission_required = 'blog.add_blogpost'
     def post(self, request):
         prompt = request.POST.get('prompt', '').strip()
         style = request.POST.get('style', 'formal')

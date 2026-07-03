@@ -114,6 +114,7 @@
                     <p class="text-xs text-gray-400">{{ request.user.email }}</p>
                 </div>
                 <div class="py-1">
+                    {% if perms.admin_panel.change_sitesetting %}
                     <a href="{% url 'admin_panel:site_settings' %}"
                        class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -121,6 +122,7 @@
                         </svg>
                         پروفایل
                     </a>
+                    {% endif %}
                     <form method="post" action="{% url 'accounts:logout' %}">
                         {% csrf_token %}
                         <button type="submit"

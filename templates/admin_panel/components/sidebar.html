@@ -39,6 +39,7 @@
             <span>داشبورد</span>
         </a>
 
+        {% if perms.store.view_product %}
         {# 2. فروشگاه #}
         <div x-data="{ open: {% if url_name == 'category_list' or url_name == 'product_list' or url_name == 'review_list' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -71,7 +72,9 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.inventory.view_inventoryentry %}
         {# 3. انبارداری #}
         <div x-data="{ open: {% if url_name == 'inventory_list' or url_name == 'inventory_report' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -99,7 +102,9 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.orders.view_invoice %}
         {# 4. فاکتورها #}
         <div x-data="{ open: {% if url_name == 'invoice_list' or url_name == 'invoice_create' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -127,7 +132,9 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.blog.view_blogpost %}
         {# 5. وبلاگ #}
         <div x-data="{ open: {% if url_name == 'post_list' or url_name == 'announcement_list' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -155,7 +162,9 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.accounts.view_user %}
         {# 6. کاربران #}
         <div x-data="{ open: {% if url_name == 'user_list' or url_name == 'staff_list' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -183,7 +192,9 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.services.view_service %}
         {# 7. خدمات و پروژه‌ها #}
         <div x-data="{ open: {% if url_name == 'service_list' or url_name == 'project_list' %}true{% else %}false{% endif %} }">
             <button @click="open = !open"
@@ -211,8 +222,22 @@
                 </a>
             </div>
         </div>
+        {% endif %}
 
-        {# 8. تنظیمات #}
+        {# 8. حسابرسی #}
+        {% if perms.finance.view_auditlog %}
+        <a href="{% url 'admin_panel:audit_list' %}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
+                  {% if url_name == 'audit_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>حسابرسی</span>
+        </a>
+        {% endif %}
+
+        {# 9. تنظیمات #}
+        {% if perms.admin_panel.change_sitesetting %}
         <a href="{% url 'admin_panel:site_settings' %}"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors
                   {% if url_name == 'site_settings' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
@@ -222,6 +247,7 @@
             </svg>
             <span>تنظیمات</span>
         </a>
+        {% endif %}
 
     </nav>
 

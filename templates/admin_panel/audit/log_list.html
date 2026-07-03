@@ -1,0 +1,79 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}رویدادهای حسابرسی{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <h1 class="text-2xl font-bold text-gray-800">رویدادهای حسابرسی</h1>
+    <p class="text-sm text-gray-500 mt-1">سابقه تغییرات مالی و مدیریتی (چه کسی، چه زمانی، چه چیزی)</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    {# --- Filters --- #}
+    <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col sm:flex-row gap-3">
+        <input type="text" name="q" value="{{ q }}" placeholder="جستجو در عنوان رکورد..."
+               class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        <select name="action" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <option value="">همه عملیات</option>
+            {% for value, label in action_choices %}
+            <option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">فیلتر</button>
+    </form>
+
+    {# --- Table --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">کاربر</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">رکورد</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تغییرات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for log in logs %}
+                    <tr class="hover:bg-gray-50 transition" x-data="{ open: false }">
+                        <td class="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">{{ log.created_at|date:'Y/m/d H:i' }}</td>
+                        <td class="px-4 py-3 text-gray-800">{{ log.actor|default:'—' }}</td>
+                        <td class="px-4 py-3">
+                            {% if log.action == 'create' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ log.get_action_display }}</span>
+                            {% elif log.action == 'delete' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ log.get_action_display }}</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">{{ log.get_action_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">{{ log.content_type|default:'—' }}</td>
+                        <td class="px-4 py-3 text-gray-800">{{ log.object_repr }}</td>
+                        <td class="px-4 py-3">
+                            {% if log.changes %}
+                            <button @click="open = !open" class="text-xs text-indigo-600 hover:text-indigo-800">جزئیات</button>
+                            <div x-show="open" x-cloak class="mt-2 p-3 bg-gray-50 rounded-lg text-xs font-mono text-gray-600 max-w-md overflow-x-auto" dir="ltr">{{ log.changes }}</div>
+                            {% else %}
+                            <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-gray-400">رویدادی ثبت نشده است</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'admin_panel/components/pagination.html' %}
+    </div>
+</div>
+{% endblock %}
