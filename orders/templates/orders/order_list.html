@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}سفارشات من | شن‌سازه{% endblock %}
 
@@ -33,7 +34,7 @@
               <td class="fw-bold">#{{ order.id }}</td>
               <td>{{ order.jalali_date }}</td>
               <td>{{ order.items_count }} قلم</td>
-              <td class="fw-bold">{{ order.total_amount|intcomma }} تومان</td>
+              <td class="fw-bold">{{ order.total_amount|toman }} تومان</td>
               <td>
                 {% if order.status == 'pending' %}
                 <span class="badge bg-warning-subtle text-warning">در انتظار</span>

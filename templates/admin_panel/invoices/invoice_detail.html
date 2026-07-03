@@ -1,6 +1,7 @@
 {% extends 'admin_panel/base.html' %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}فاکتور #{{ invoice.number }}{% endblock %}
 
@@ -102,8 +103,8 @@
                     <td class="px-4 py-3 font-medium text-gray-800">{{ item.product.name|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ item.description|default:"-" }}</td>
                     <td class="px-4 py-3 text-center text-gray-700">{{ item.quantity }}</td>
-                    <td class="px-4 py-3 text-gray-700">{{ item.unit_price|intcomma }} تومان</td>
-                    <td class="px-4 py-3 font-medium text-gray-800">{{ item.total_price|intcomma }} تومان</td>
+                    <td class="px-4 py-3 text-gray-700">{{ item.unit_price|toman }} تومان</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">{{ item.total_price|toman }} تومان</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -115,23 +116,23 @@
         <div class="w-72 space-y-2">
             <div class="flex justify-between text-sm text-gray-600 py-1">
                 <span>جمع کل:</span>
-                <span>{{ invoice.subtotal|intcomma }} تومان</span>
+                <span>{{ invoice.subtotal|toman }} تومان</span>
             </div>
             {% if invoice.discount %}
             <div class="flex justify-between text-sm text-red-600 py-1">
                 <span>تخفیف:</span>
-                <span>{{ invoice.discount|intcomma }}- تومان</span>
+                <span>{{ invoice.discount|toman }}- تومان</span>
             </div>
             {% endif %}
             {% if invoice.tax %}
             <div class="flex justify-between text-sm text-gray-600 py-1">
                 <span>مالیات:</span>
-                <span>{{ invoice.tax|intcomma }} تومان</span>
+                <span>{{ invoice.tax|toman }} تومان</span>
             </div>
             {% endif %}
             <div class="flex justify-between text-base font-bold text-gray-800 pt-2 border-t-2 border-gray-200">
                 <span>مبلغ نهایی:</span>
-                <span>{{ invoice.total_amount|intcomma }} تومان</span>
+                <span>{{ invoice.total|toman }} تومان</span>
             </div>
         </div>
     </div>

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}سفارش #{{ order.id }} | شن‌سازه{% endblock %}
 
@@ -47,7 +48,7 @@
             </tr>
             <tr>
               <td class="text-muted">مبلغ کل:</td>
-              <td class="fw-bold text-primary">{{ order.total_amount|intcomma }} تومان</td>
+              <td class="fw-bold text-primary">{{ order.total_amount|toman }} تومان</td>
             </tr>
           </table>
 
@@ -88,9 +89,9 @@
                       <span class="fw-bold">{{ item.product.name }}</span>
                     </div>
                   </td>
-                  <td>{{ item.unit_price|intcomma }} تومان</td>
+                  <td>{{ item.unit_price|toman }} تومان</td>
                   <td>{{ item.quantity }}</td>
-                  <td class="fw-bold">{{ item.total_price|intcomma }} تومان</td>
+                  <td class="fw-bold">{{ item.total_price|toman }} تومان</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -98,12 +99,12 @@
                 {% if order.discount %}
                 <tr>
                   <td colspan="3" class="text-start fw-bold">تخفیف:</td>
-                  <td class="text-danger fw-bold">{{ order.discount|intcomma }}- تومان</td>
+                  <td class="text-danger fw-bold">{{ order.discount|toman }}- تومان</td>
                 </tr>
                 {% endif %}
                 <tr>
                   <td colspan="3" class="text-start fw-bold">مبلغ نهایی:</td>
-                  <td class="fw-bold text-primary fs-5">{{ order.total_amount|intcomma }} تومان</td>
+                  <td class="fw-bold text-primary fs-5">{{ order.total_amount|toman }} تومان</td>
                 </tr>
               </tfoot>
             </table>

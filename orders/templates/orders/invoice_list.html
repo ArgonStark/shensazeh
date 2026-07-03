@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}فاکتورها | شن‌سازه{% endblock %}
 
@@ -72,7 +73,7 @@
               <td class="fw-bold">#{{ invoice.number }}</td>
               <td>{{ invoice.customer_name }}</td>
               <td>{{ invoice.jalali_date }}</td>
-              <td class="fw-bold">{{ invoice.total_amount|intcomma }} تومان</td>
+              <td class="fw-bold">{{ invoice.total|toman }} تومان</td>
               <td>
                 {% if invoice.status == 'draft' %}
                 <span class="badge bg-secondary-subtle text-secondary">پیش‌نویس</span>

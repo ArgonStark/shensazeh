@@ -1,6 +1,7 @@
 {% extends 'admin_panel/base.html' %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}محصولات{% endblock %}
 
@@ -82,7 +83,7 @@
                         </td>
                         <td class="px-4 py-3 font-medium text-gray-800">{{ product.name }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ product.category.name|default:"-" }}</td>
-                        <td class="px-4 py-3 text-gray-700">{{ product.price|intcomma }} تومان</td>
+                        <td class="px-4 py-3 text-gray-700">{{ product.price|toman }} تومان</td>
                         <td class="px-4 py-3">
                             {% if product.stock == 0 %}
                             <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">ناموجود</span>

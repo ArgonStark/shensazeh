@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}فاکتور #{{ invoice.number }} | شن‌سازه{% endblock %}
 
@@ -108,8 +109,8 @@
               <td>{{ item.description|default:item.product.name }}</td>
               <td class="text-center">{{ item.quantity }}</td>
               <td class="text-center">{{ item.unit|default:"عدد" }}</td>
-              <td>{{ item.unit_price|intcomma }}</td>
-              <td class="fw-bold">{{ item.total_price|intcomma }}</td>
+              <td>{{ item.unit_price|toman }}</td>
+              <td class="fw-bold">{{ item.total_price|toman }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -122,23 +123,23 @@
           <table class="table table-borderless">
             <tr>
               <td class="text-muted">جمع کل:</td>
-              <td class="fw-bold">{{ invoice.subtotal|intcomma }} تومان</td>
+              <td class="fw-bold">{{ invoice.subtotal|toman }} تومان</td>
             </tr>
             {% if invoice.discount %}
             <tr>
               <td class="text-muted">تخفیف:</td>
-              <td class="text-danger">{{ invoice.discount|intcomma }}- تومان</td>
+              <td class="text-danger">{{ invoice.discount|toman }}- تومان</td>
             </tr>
             {% endif %}
             {% if invoice.tax_amount %}
             <tr>
               <td class="text-muted">مالیات ({{ invoice.tax_percent }}%):</td>
-              <td>{{ invoice.tax_amount|intcomma }} تومان</td>
+              <td>{{ invoice.tax|toman }} تومان</td>
             </tr>
             {% endif %}
             <tr class="border-top">
               <td class="fw-bold fs-5">مبلغ قابل پرداخت:</td>
-              <td class="fw-bold fs-5 text-primary">{{ invoice.total_amount|intcomma }} تومان</td>
+              <td class="fw-bold fs-5 text-primary">{{ invoice.total|toman }} تومان</td>
             </tr>
           </table>
         </div>

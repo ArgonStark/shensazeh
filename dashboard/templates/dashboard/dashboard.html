@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load humanize %}
+{% load finance_tags %}
 
 {% block title %}داشبورد مدیریت | شن‌سازه{% endblock %}
 
@@ -19,7 +20,7 @@
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <div class="text-muted small mb-1">فروش کل</div>
-              <h4 class="fw-bold mb-0">{{ total_sales|intcomma }}</h4>
+              <h4 class="fw-bold mb-0">{{ total_sales|toman }}</h4>
               <small class="text-muted">تومان</small>
             </div>
             <i class="bi bi-currency-exchange fs-1 text-primary opacity-50"></i>
@@ -33,7 +34,7 @@
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <div class="text-muted small mb-1">ارزش انبار</div>
-              <h4 class="fw-bold mb-0">{{ inventory_value|intcomma }}</h4>
+              <h4 class="fw-bold mb-0">{{ inventory_value|toman }}</h4>
               <small class="text-muted">تومان</small>
             </div>
             <i class="bi bi-boxes fs-1 text-success opacity-50"></i>
@@ -96,7 +97,7 @@
                 <tr>
                   <td><a href="{% url 'orders:invoice_detail' invoice.id %}">#{{ invoice.number }}</a></td>
                   <td>{{ invoice.customer_name }}</td>
-                  <td class="fw-bold">{{ invoice.total_amount|intcomma }}</td>
+                  <td class="fw-bold">{{ invoice.total|toman }}</td>
                   <td>
                     {% if invoice.status == 'paid' %}
                     <span class="badge bg-success-subtle text-success">پرداخت شده</span>

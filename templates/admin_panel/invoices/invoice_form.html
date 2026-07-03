@@ -84,7 +84,7 @@
                                 <input type="number" :name="'items-' + index + '-unit_price'" x-model.number="item.unit_price" min="0" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
                             </td>
                             <td class="px-3 py-2">
-                                <span class="block text-sm font-medium text-gray-700 py-2" x-text="(item.quantity * item.unit_price).toLocaleString('fa-IR') + ' تومان'"></span>
+                                <span class="block text-sm font-medium text-gray-700 py-2" x-text="(item.quantity * item.unit_price).toLocaleString('fa-IR') + ' ریال'"></span>
                             </td>
                             <td class="px-3 py-2">
                                 <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
@@ -114,19 +114,19 @@
         <div class="max-w-md mr-auto space-y-3">
             <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-600">جمع کل:</span>
-                <span class="font-medium text-gray-800" x-text="subtotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                <span class="font-medium text-gray-800" x-text="subtotal.toLocaleString('fa-IR') + ' ریال'"></span>
             </div>
             <div class="flex items-center justify-between text-sm gap-4">
-                <span class="text-gray-600">تخفیف (تومان):</span>
+                <span class="text-gray-600">تخفیف (ریال):</span>
                 <input type="number" name="discount" x-model.number="discount" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
             </div>
             <div class="flex items-center justify-between text-sm gap-4">
-                <span class="text-gray-600">مالیات (تومان):</span>
+                <span class="text-gray-600">مالیات (ریال):</span>
                 <input type="number" name="tax" x-model.number="tax" min="0" class="w-40 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm" @input="updateTotals()">
             </div>
             <div class="flex items-center justify-between text-base pt-3 border-t border-gray-200">
                 <span class="font-semibold text-gray-800">مبلغ نهایی:</span>
-                <span class="font-bold text-lg text-blue-600" x-text="grandTotal.toLocaleString('fa-IR') + ' تومان'"></span>
+                <span class="font-bold text-lg text-blue-600" x-text="grandTotal.toLocaleString('fa-IR') + ' ریال'"></span>
             </div>
         </div>
     </div>

@@ -1,4 +1,5 @@
 {% load humanize %}
+{% load finance_tags %}
 {# Reusable product card — expects `product` in context. Uses real model fields. #}
 <div class="product-card h-100 shadow-soft d-flex flex-column" data-aos="fade-up">
   <a href="{% url 'store:product_detail' product.slug %}" class="img-wrap d-block">
@@ -17,7 +18,7 @@
     </h6>
     <div class="mt-auto pt-2 d-flex align-items-center justify-content-between">
       {% if product.is_available %}
-      <span class="price fs-6">{{ product.price|intcomma }} <small class="text-muted fw-normal">تومان</small></span>
+      <span class="price fs-6">{{ product.price|toman }} <small class="text-muted fw-normal">تومان</small></span>
       <span class="badge bg-success-subtle text-success"><i class="bi bi-check-circle me-1"></i>موجود</span>
       {% else %}
       <span class="text-muted small">تماس بگیرید</span>

@@ -37,7 +37,7 @@
             <hr>
             <h5 class="fw-bold mb-3">تخفیف و مالیات</h5>
             <div class="mb-3">
-              <label class="form-label fw-bold">تخفیف (تومان)</label>
+              <label class="form-label fw-bold">تخفیف (ریال)</label>
               <input type="number" name="discount" class="form-control" id="discountInput" value="{{ form.discount.value|default:'0' }}" min="0">
             </div>
             <div class="mb-3">
@@ -70,7 +70,7 @@
                     <th style="width:5%">#</th>
                     <th style="width:30%">محصول</th>
                     <th style="width:15%">تعداد</th>
-                    <th style="width:20%">قیمت واحد (تومان)</th>
+                    <th style="width:20%">قیمت واحد (ریال)</th>
                     <th style="width:20%">مبلغ</th>
                     <th style="width:10%"></th>
                   </tr>
@@ -92,7 +92,7 @@
                     <td>
                       <input type="number" name="items-0-unit_price" class="form-control form-control-sm item-price" value="0" min="0">
                     </td>
-                    <td class="item-total fw-bold">۰ تومان</td>
+                    <td class="item-total fw-bold">۰ ریال</td>
                     <td>
                       <button type="button" class="btn btn-outline-danger btn-sm remove-line-item">
                         <i class="bi bi-trash"></i>
@@ -113,19 +113,19 @@
                   <table class="table table-borderless table-sm mb-0">
                     <tr>
                       <td class="text-muted">جمع اقلام:</td>
-                      <td class="fw-bold text-start" id="subtotalDisplay">۰ تومان</td>
+                      <td class="fw-bold text-start" id="subtotalDisplay">۰ ریال</td>
                     </tr>
                     <tr>
                       <td class="text-muted">تخفیف:</td>
-                      <td class="text-danger text-start" id="discountDisplay">۰ تومان</td>
+                      <td class="text-danger text-start" id="discountDisplay">۰ ریال</td>
                     </tr>
                     <tr>
                       <td class="text-muted">مالیات:</td>
-                      <td class="text-start" id="taxDisplay">۰ تومان</td>
+                      <td class="text-start" id="taxDisplay">۰ ریال</td>
                     </tr>
                     <tr class="border-top">
                       <td class="fw-bold fs-5">مبلغ نهایی:</td>
-                      <td class="fw-bold fs-5 text-primary text-start" id="grandTotalDisplay">۰ تومان</td>
+                      <td class="fw-bold fs-5 text-primary text-start" id="grandTotalDisplay">۰ ریال</td>
                     </tr>
                   </table>
                 </div>
