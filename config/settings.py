@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'telegram_bot',
     'admin_panel',
     'finance',
+    'parties',
 ]
 
 MIDDLEWARE = [

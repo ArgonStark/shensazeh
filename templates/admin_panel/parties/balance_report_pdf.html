@@ -1,0 +1,57 @@
+{% load finance_tags %}<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>گزارش مانده حساب‌ها</title>
+  <style>
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+      font-weight: normal;
+    }
+    @font-face {
+      font-family: 'Vazirmatn';
+      src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+      font-weight: bold;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Vazirmatn', 'Tahoma', sans-serif; font-size: 11px; color: #333; direction: rtl; padding: 24px; line-height: 1.7; }
+    h1 { font-size: 16px; color: #1e293b; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 10px; text-align: right; }
+    td { border: 1px solid #e2e8f0; padding: 5px 8px; text-align: right; }
+    .totals { margin-top: 12px; display: flex; gap: 24px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>گزارش مانده حساب طرف حساب‌ها</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>طرف حساب</th>
+        <th style="width:14%">نوع</th>
+        <th style="width:17%">جمع بدهکار (تومان)</th>
+        <th style="width:17%">جمع بستانکار (تومان)</th>
+        <th style="width:20%">مانده (تومان)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for party in parties %}
+      <tr>
+        <td>{{ party.name }}</td>
+        <td>{{ party.get_party_type_display }}</td>
+        <td>{{ party.total_debit|toman }}</td>
+        <td>{{ party.total_credit|toman }}</td>
+        <td>{{ party.balance_amount|toman|cut:'-' }} {% if party.balance_amount > 0 %}بدهکار{% elif party.balance_amount < 0 %}بستانکار{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center; color:#94a3b8;">طرف حسابی ثبت نشده است</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="totals">
+    <span>جمع طلب ما: {{ sum_receivable|toman }} تومان</span>
+    <span>جمع بدهی ما: {{ sum_payable|toman }} تومان</span>
+  </div>
+</body>
+</html>

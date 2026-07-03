@@ -1,0 +1,135 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}دفتر حساب {{ party.name }}{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">دفتر حساب: {{ party.name }}</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            {{ party.get_party_type_display }}
+            {% if party.mobile %}<span class="text-gray-300 mx-1">|</span><span dir="ltr" class="font-mono text-xs">{{ party.mobile }}</span>{% endif %}
+            {% if party.city %}<span class="text-gray-300 mx-1">|</span>{{ party.city }}{% endif %}
+        </p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+        {% if perms.parties.add_payment %}
+        <button @click="$dispatch('open-payment')" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            ثبت دریافت/پرداخت
+        </button>
+        {% endif %}
+        <a href="{% url 'admin_panel:party_ledger_pdf' party.pk %}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            چاپ / PDF
+        </a>
+        <a href="{% url 'admin_panel:party_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">بازگشت</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="{ paymentModal: false }" @open-payment.window="paymentModal = true">
+
+    {# --- Summary cards --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">جمع بدهکار</p>
+            <p class="text-xl font-bold text-red-600 mt-1">{{ total_debit|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">جمع بستانکار</p>
+            <p class="text-xl font-bold text-green-600 mt-1">{{ total_credit|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">مانده حساب</p>
+            {% if balance > 0 %}
+            <p class="text-xl font-bold text-red-600 mt-1">{{ balance|toman }} <span class="text-xs font-normal">تومان بدهکار</span></p>
+            {% elif balance < 0 %}
+            <p class="text-xl font-bold text-green-600 mt-1">{{ balance|toman|cut:'-' }} <span class="text-xs font-normal">تومان بستانکار</span></p>
+            {% else %}
+            <p class="text-xl font-bold text-gray-500 mt-1">تسویه</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Ledger table --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">شرح</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">بدهکار (تومان)</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">بستانکار (تومان)</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مانده (تومان)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in rows %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{{ row.entry.created_at|date:'Y/m/d H:i' }}</td>
+                        <td class="px-4 py-3 text-gray-800">{{ row.entry.description }}</td>
+                        <td class="px-4 py-3 text-red-600">{% if row.entry.entry_type == 'debit' %}{{ row.entry.amount|toman }}{% else %}—{% endif %}</td>
+                        <td class="px-4 py-3 text-green-600">{% if row.entry.entry_type == 'credit' %}{{ row.entry.amount|toman }}{% else %}—{% endif %}</td>
+                        <td class="px-4 py-3 font-medium {% if row.balance > 0 %}text-red-600{% elif row.balance < 0 %}text-green-600{% else %}text-gray-500{% endif %}">
+                            {{ row.balance|toman|cut:'-' }}
+                            <span class="text-xs font-normal text-gray-400">{% if row.balance > 0 %}بد{% elif row.balance < 0 %}بس{% endif %}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">هنوز سندی در دفتر این طرف حساب ثبت نشده است</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# --- Payment modal --- #}
+    {% if perms.parties.add_payment %}
+    <div x-show="paymentModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="paymentModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">ثبت دریافت/پرداخت — {{ party.name }}</h3>
+                <p class="text-xs text-gray-500 mt-1">مبلغ به ریال وارد می‌شود و بلافاصله در دفتر حساب می‌نشیند.</p>
+            </div>
+            <form method="post" action="{% url 'admin_panel:party_payment' party.pk %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="{{ payment_form.kind.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نوع</label>
+                        {{ payment_form.kind }}
+                    </div>
+                    <div>
+                        <label for="{{ payment_form.method.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">روش</label>
+                        {{ payment_form.method }}
+                    </div>
+                </div>
+                <div>
+                    <label for="{{ payment_form.amount.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">مبلغ (ریال)</label>
+                    {{ payment_form.amount }}
+                </div>
+                <div>
+                    <label for="{{ payment_form.reference.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شماره پیگیری</label>
+                    {{ payment_form.reference }}
+                </div>
+                <div>
+                    <label for="{{ payment_form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شرح</label>
+                    {{ payment_form.description }}
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ثبت تراکنش</button>
+                    <button type="button" @click="paymentModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

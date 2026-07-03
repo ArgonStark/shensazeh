@@ -30,6 +30,17 @@ urlpatterns = [
     path('invoices/<int:pk>/edit/', views.AdminInvoiceEditView.as_view(), name='invoice_edit'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
+    # Parties
+    path('parties/', views.AdminPartyListView.as_view(), name='party_list'),
+    path('parties/create/', views.AdminPartyCreateView.as_view(), name='party_create'),
+    path('parties/report/', views.AdminPartyBalanceReportView.as_view(), name='party_balance_report'),
+    path('parties/report/pdf/', views.AdminPartyBalanceReportPDFView.as_view(), name='party_balance_report_pdf'),
+    path('parties/export/', views.AdminPartyExportView.as_view(), name='party_export'),
+    path('parties/import/', views.AdminPartyImportView.as_view(), name='party_import'),
+    path('parties/<int:pk>/edit/', views.AdminPartyEditView.as_view(), name='party_edit'),
+    path('parties/<int:pk>/ledger/', views.AdminPartyLedgerView.as_view(), name='party_ledger'),
+    path('parties/<int:pk>/ledger/pdf/', views.AdminPartyLedgerPDFView.as_view(), name='party_ledger_pdf'),
+    path('parties/<int:pk>/payment/', views.AdminPaymentCreateView.as_view(), name='party_payment'),
     # Blog
     path('posts/', views.AdminPostListView.as_view(), name='post_list'),
     path('posts/create/', views.AdminPostCreateView.as_view(), name='post_create'),

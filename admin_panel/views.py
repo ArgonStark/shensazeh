@@ -23,10 +23,14 @@ from orders.models import Order, OrderItem, Invoice, InvoiceItem
 from services.models import Service, Project, ProjectImage
 from store.models import Category, Product, ProductImage, ProductReview
 
+from parties.models import LedgerEntry, Party, PartyTag, Payment
+from parties.services import LedgerError, ledger_rows_with_balance, record_payment
+
 from . import permissions as panel_permissions
 from .forms import (
     ProductForm, CategoryForm, InventoryEntryForm, InvoiceForm,
-    BlogPostForm, AnnouncementForm, ServiceForm, ProjectForm, StaffForm,
+    BlogPostForm, AnnouncementForm, PartyForm, PaymentForm,
+    ServiceForm, ProjectForm, StaffForm,
 )
 
 
@@ -495,6 +499,238 @@ class AdminInvoicePDFView(PanelPermissionMixin, View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="invoice-{invoice.invoice_number}.pdf"'
         return response
+
+
+# ─── Parties (طرف حساب‌ها) ───────────────────────────────────
+
+def _party_balance_annotation():
+    return (Sum('ledger_entries__amount', filter=Q(ledger_entries__entry_type=LedgerEntry.DEBIT), default=0)
+            - Sum('ledger_entries__amount', filter=Q(ledger_entries__entry_type=LedgerEntry.CREDIT), default=0))
+
+
+class AdminPartyListView(PanelPermissionMixin, ListView):
+    permission_required = 'parties.view_party'
+    template_name = 'admin_panel/parties/party_list.html'
+    context_object_name = 'parties'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Party.objects.prefetch_related('tags').annotate(balance_amount=_party_balance_annotation())
+        q = self.request.GET.get('q', '').strip()
+        party_type = self.request.GET.get('type', '').strip()
+        tag = self.request.GET.get('tag', '').strip()
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(company__icontains=q) | Q(mobile__icontains=q))
+        if party_type in dict(Party.TYPE_CHOICES):
+            qs = qs.filter(party_type=party_type)
+        if tag:
+            qs = qs.filter(tags__pk=tag)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['type_choices'] = Party.TYPE_CHOICES
+        ctx['all_tags'] = PartyTag.objects.all()
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['selected_type'] = self.request.GET.get('type', '')
+        ctx['selected_tag'] = self.request.GET.get('tag', '')
+        return ctx
+
+
+class AdminPartyCreateView(PanelPermissionMixin, CreateView):
+    permission_required = 'parties.add_party'
+    template_name = 'admin_panel/parties/party_form.html'
+    form_class = PartyForm
+    success_url = reverse_lazy('admin_panel:party_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_action(self.request.user, 'create', self.object)
+        return response
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['page_title'] = 'افزودن طرف حساب'
+        return ctx
+
+
+class AdminPartyEditView(PanelPermissionMixin, UpdateView):
+    permission_required = 'parties.change_party'
+    model = Party
+    template_name = 'admin_panel/parties/party_form.html'
+    form_class = PartyForm
+    success_url = reverse_lazy('admin_panel:party_list')
+
+    def form_valid(self, form):
+        before = model_snapshot(self.model.objects.get(pk=self.object.pk))
+        response = super().form_valid(form)
+        log_action(self.request.user, 'update', self.object, before=before, after=model_snapshot(self.object))
+        return response
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['page_title'] = 'ویرایش طرف حساب'
+        return ctx
+
+
+class AdminPartyLedgerView(PanelPermissionMixin, DetailView):
+    """Party profile + full ledger with running balance + payment entry."""
+    permission_required = 'parties.view_ledgerentry'
+    model = Party
+    template_name = 'admin_panel/parties/party_ledger.html'
+    context_object_name = 'party'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        rows = ledger_rows_with_balance(self.object)
+        ctx['rows'] = rows
+        ctx['balance'] = rows[-1]['balance'] if rows else 0
+        ctx['total_debit'] = sum(r['entry'].amount for r in rows if r['entry'].entry_type == LedgerEntry.DEBIT)
+        ctx['total_credit'] = sum(r['entry'].amount for r in rows if r['entry'].entry_type == LedgerEntry.CREDIT)
+        ctx['payment_form'] = PaymentForm()
+        return ctx
+
+
+class AdminPaymentCreateView(PanelPermissionMixin, View):
+    permission_required = 'parties.add_payment'
+
+    def post(self, request, pk):
+        party = get_object_or_404(Party, pk=pk)
+        form = PaymentForm(request.POST)
+        if form.is_valid():
+            try:
+                record_payment(
+                    party=party,
+                    kind=form.cleaned_data['kind'],
+                    method=form.cleaned_data['method'],
+                    amount=form.cleaned_data['amount'],
+                    reference=form.cleaned_data['reference'],
+                    description=form.cleaned_data['description'],
+                    user=request.user,
+                )
+                messages.success(request, 'تراکنش با موفقیت ثبت شد.')
+            except LedgerError as exc:
+                messages.error(request, str(exc))
+        else:
+            messages.error(request, 'اطلاعات فرم نامعتبر است.')
+        return redirect('admin_panel:party_ledger', pk=party.pk)
+
+
+class AdminPartyBalanceReportView(PanelPermissionMixin, ListView):
+    """All parties with debit/credit totals and net balance."""
+    permission_required = 'parties.view_party'
+    template_name = 'admin_panel/parties/balance_report.html'
+    context_object_name = 'parties'
+
+    def get_queryset(self):
+        return (Party.objects.filter(is_active=True)
+                .annotate(balance_amount=_party_balance_annotation(),
+                          total_debit=Sum('ledger_entries__amount',
+                                          filter=Q(ledger_entries__entry_type=LedgerEntry.DEBIT), default=0),
+                          total_credit=Sum('ledger_entries__amount',
+                                           filter=Q(ledger_entries__entry_type=LedgerEntry.CREDIT), default=0))
+                .order_by('-balance_amount'))
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        parties = list(ctx['parties'])
+        ctx['sum_receivable'] = sum(p.balance_amount for p in parties if p.balance_amount > 0)
+        ctx['sum_payable'] = -sum(p.balance_amount for p in parties if p.balance_amount < 0)
+        return ctx
+
+
+class AdminPartyBalanceReportPDFView(AdminPartyBalanceReportView):
+    def render_to_response(self, context, **response_kwargs):
+        context['pdf_mode'] = True
+        html = render_to_string('admin_panel/parties/balance_report_pdf.html', context, request=self.request)
+        from weasyprint import HTML
+        pdf = HTML(string=html).write_pdf()
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'inline; filename="party-balances.pdf"'
+        return response
+
+
+class AdminPartyLedgerPDFView(PanelPermissionMixin, View):
+    permission_required = 'parties.view_ledgerentry'
+
+    def get(self, request, pk):
+        party = get_object_or_404(Party, pk=pk)
+        rows = ledger_rows_with_balance(party)
+        balance = rows[-1]['balance'] if rows else 0
+        html = render_to_string('admin_panel/parties/party_ledger_pdf.html', {
+            'party': party,
+            'rows': rows,
+            'balance': balance,
+            'abs_balance': abs(balance),
+        }, request=request)
+        from weasyprint import HTML
+        pdf = HTML(string=html).write_pdf()
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="ledger-{party.pk}.pdf"'
+        return response
+
+
+class AdminPartyExportView(PanelPermissionMixin, View):
+    permission_required = 'parties.view_party'
+
+    def get(self, request):
+        from finance.excel import workbook_response
+        parties = Party.objects.annotate(balance_amount=_party_balance_annotation()).order_by('name')
+        headers = ['نام', 'نوع', 'شرکت', 'موبایل', 'تلفن', 'کد ملی', 'کد اقتصادی',
+                   'استان', 'شهر', 'آدرس', 'مانده (ریال)', 'وضعیت']
+        rows = [[p.name, p.get_party_type_display(), p.company, p.mobile, p.phone,
+                 p.national_id, p.economic_code, p.province, p.city, p.address,
+                 p.balance_amount, 'فعال' if p.is_active else 'غیرفعال'] for p in parties]
+        return workbook_response('parties', 'طرف حساب‌ها', headers, rows)
+
+
+class AdminPartyImportView(PanelPermissionMixin, View):
+    """Excel import: columns نام | نوع | شرکت | موبایل | تلفن | کد ملی | کد اقتصادی | استان | شهر | آدرس"""
+    permission_required = 'parties.add_party'
+
+    TYPE_BY_LABEL = {label: value for value, label in Party.TYPE_CHOICES}
+
+    @transaction.atomic
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            messages.error(request, 'فایل اکسل انتخاب نشده است.')
+            return redirect('admin_panel:party_list')
+        from finance.excel import read_sheet
+        try:
+            _, rows = read_sheet(file_obj)
+        except Exception:
+            messages.error(request, 'فایل اکسل قابل خواندن نیست.')
+            return redirect('admin_panel:party_list')
+
+        created = skipped = 0
+        for row in rows:
+            row = list(row) + [''] * (10 - len(row))
+            name = str(row[0] or '').strip()
+            if not name:
+                skipped += 1
+                continue
+            mobile = str(row[3] or '').strip()
+            exists = Party.objects.filter(mobile=mobile).exists() if mobile else Party.objects.filter(name=name).exists()
+            if exists:
+                skipped += 1
+                continue
+            party = Party.objects.create(
+                name=name,
+                party_type=self.TYPE_BY_LABEL.get(str(row[1] or '').strip(), 'customer'),
+                company=str(row[2] or '').strip(),
+                mobile=mobile,
+                phone=str(row[4] or '').strip(),
+                national_id=str(row[5] or '').strip(),
+                economic_code=str(row[6] or '').strip(),
+                province=str(row[7] or '').strip(),
+                city=str(row[8] or '').strip(),
+                address=str(row[9] or '').strip(),
+            )
+            log_action(request.user, 'create', party)
+            created += 1
+        messages.success(request, f'{created} طرف حساب وارد شد ({skipped} رد شد).')
+        return redirect('admin_panel:party_list')
 
 
 # ─── Blog ────────────────────────────────────────────────────

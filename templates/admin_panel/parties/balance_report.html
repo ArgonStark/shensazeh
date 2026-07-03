@@ -1,0 +1,72 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}گزارش مانده حساب‌ها{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">گزارش مانده حساب‌ها</h1>
+        <p class="text-sm text-gray-500 mt-1">بدهکاران و بستانکاران در یک نگاه</p>
+    </div>
+    <a href="{% url 'admin_panel:party_balance_report_pdf' %}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        چاپ / PDF
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">جمع طلب ما (بدهکاران)</p>
+            <p class="text-xl font-bold text-red-600 mt-1">{{ sum_receivable|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">جمع بدهی ما (بستانکاران)</p>
+            <p class="text-xl font-bold text-green-600 mt-1">{{ sum_payable|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">طرف حساب</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">جمع بدهکار</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">جمع بستانکار</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مانده (تومان)</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for party in parties %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ party.name }}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">{{ party.get_party_type_display }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ party.total_debit|toman }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ party.total_credit|toman }}</td>
+                        <td class="px-4 py-3 font-medium {% if party.balance_amount > 0 %}text-red-600{% elif party.balance_amount < 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+                            {{ party.balance_amount|toman|cut:'-' }}
+                            {% if party.balance_amount > 0 %}بدهکار{% elif party.balance_amount < 0 %}بستانکار{% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if perms.parties.view_ledgerentry %}
+                            <a href="{% url 'admin_panel:party_ledger' party.pk %}" class="text-xs text-indigo-600 hover:text-indigo-800">دفتر حساب ←</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">طرف حسابی ثبت نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

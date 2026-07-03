@@ -25,6 +25,10 @@ MODULES = {
         'label': 'فاکتورها و سفارشات',
         'models': ['orders.invoice', 'orders.invoiceitem', 'orders.order', 'orders.orderitem'],
     },
+    'parties': {
+        'label': 'طرف حساب‌ها و دفتر حساب',
+        'models': ['parties.party', 'parties.partytag', 'parties.ledgerentry', 'parties.payment'],
+    },
     'blog': {
         'label': 'وبلاگ و اطلاعیه‌ها',
         'models': ['blog.blogpost', 'blog.blogcomment', 'blog.announcement'],
@@ -59,6 +63,7 @@ ROLE_DEFAULTS = {
     },
     'accountant': {
         'invoices': ACTIONS,
+        'parties': ACTIONS,
         'inventory': ['view'],
         'products': ['view'],
         'users': ['view'],
@@ -66,6 +71,7 @@ ROLE_DEFAULTS = {
     },
     'sales': {
         'invoices': ['view', 'add', 'change'],
+        'parties': ['view', 'add', 'change'],
         'products': ['view'],
         'inventory': ['view'],
         'users': ['view'],

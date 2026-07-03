@@ -3,6 +3,7 @@ from store.models import Category, Product, ProductReview
 from inventory.models import InventoryEntry
 from orders.models import Invoice, InvoiceItem
 from blog.models import BlogPost, Announcement
+from parties.models import Party, Payment
 from services.models import Service, Project
 from accounts.models import StaffProfile
 from .models import SiteSetting
@@ -153,6 +154,46 @@ class SiteSettingForm(forms.ModelForm):
             'whatsapp': forms.URLInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'https://wa.me/...'}),
             'linkedin': forms.URLInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'https://linkedin.com/...'}),
             'copyright_text': forms.TextInput(attrs={'class': TW['input']}),
+        }
+
+
+class PartyForm(forms.ModelForm):
+    class Meta:
+        model = Party
+        fields = [
+            'party_type', 'name', 'company', 'mobile', 'phone',
+            'national_id', 'economic_code', 'province', 'city', 'address',
+            'postal_code', 'user', 'tags', 'notes', 'is_active',
+        ]
+        widgets = {
+            'party_type': forms.Select(attrs={'class': TW['select']}),
+            'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'نام شخص یا شرکت'}),
+            'company': forms.TextInput(attrs={'class': TW['input']}),
+            'mobile': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': '09xxxxxxxxx'}),
+            'phone': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'national_id': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'economic_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'province': forms.TextInput(attrs={'class': TW['input']}),
+            'city': forms.TextInput(attrs={'class': TW['input']}),
+            'address': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2}),
+            'postal_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'user': forms.Select(attrs={'class': TW['select']}),
+            'tags': forms.SelectMultiple(attrs={'class': TW['select'], 'size': 4}),
+            'notes': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2}),
+            'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+        }
+
+
+class PaymentForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ['kind', 'method', 'amount', 'reference', 'description']
+        widgets = {
+            'kind': forms.Select(attrs={'class': TW['select']}),
+            'method': forms.Select(attrs={'class': TW['select']}),
+            'amount': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'مبلغ به ریال', 'min': 1}),
+            'reference': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': 'شماره پیگیری (اختیاری)'}),
+            'description': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'شرح (اختیاری)'}),
         }
 
 
