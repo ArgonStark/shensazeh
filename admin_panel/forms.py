@@ -19,37 +19,143 @@ TW = {
 }
 
 
-class ProductForm(forms.ModelForm):
+class AutoSlugModelForm(forms.ModelForm):
+    """Slug is optional in the panel — generated from `slug_source` (default
+    'name', falls back to 'title') when left blank, kept unique per model.
+
+    Fixes the whole-panel trap where a required SlugField rejected blank input
+    even though the UI labels it 'خودکار'.
+    """
+    slug_source = 'name'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if 'slug' in self.fields:
+            # Accept free text (spaces, mixed case) and slugify it in clean_slug;
+            # the SlugField's own validators would otherwise reject it first.
+            self.fields['slug'].required = False
+            self.fields['slug'].validators = []
+
+    def _slug_source_value(self):
+        for field in (self.slug_source, 'name', 'title'):
+            value = self.cleaned_data.get(field)
+            if value:
+                return value
+        return ''
+
+    def unique_slug(self, base):
+        from django.utils.text import slugify
+        slug = slugify(base, allow_unicode=True) or 'item'
+        candidate, i = slug, 1
+        qs = self._meta.model.objects.exclude(pk=self.instance.pk)
+        while qs.filter(slug=candidate).exists():
+            i += 1
+            candidate = f'{slug}-{i}'
+        return candidate
+
+    def clean_slug(self):
+        from django.utils.text import slugify
+        slug = (self.cleaned_data.get('slug') or '').strip()
+        return slugify(slug, allow_unicode=True) if slug else ''
+
+    def clean(self):
+        cleaned = super().clean()
+        if 'slug' in self.fields and not cleaned.get('slug'):
+            source = self._slug_source_value()
+            if source:
+                cleaned['slug'] = self.unique_slug(source)
+        return cleaned
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        if 'slug' in self.fields and not obj.slug:
+            obj.slug = self.unique_slug(getattr(obj, self.slug_source, None) or obj.title)
+        if commit:
+            obj.save()
+            self.save_m2m()
+        return obj
+
+
+class ProductForm(AutoSlugModelForm):
+    # The form template names this textarea "specs" and asks for one "key: value"
+    # per line; we parse it into the JSONField in clean(). Declared as an
+    # explicit CharField so the raw text never hits the JSONField validator.
+    specs = forms.CharField(
+        label='مشخصات فنی', required=False,
+        widget=forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3,
+                                     'placeholder': 'هر مشخصه در یک خط، مثل:\nرنگ: سفید\nوزن: ۲ کیلوگرم'}),
+    )
+    expiry_date = forms.CharField(
+        label='تاریخ انقضا', required=False,
+        widget=forms.TextInput(attrs={'class': TW['input'], 'placeholder': '1405/06/01 (اختیاری)', 'dir': 'ltr'}),
+    )
+
     class Meta:
         model = Product
-        fields = ['name', 'slug', 'code', 'category', 'description', 'specifications', 'unit',
-                  'price', 'purchase_price', 'barcode', 'stock', 'reorder_point', 'expiry_date', 'is_active']
+        fields = ['name', 'slug', 'code', 'category', 'description', 'unit',
+                  'price', 'purchase_price', 'barcode', 'stock', 'reorder_point', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'نام محصول'}),
             'slug': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'اسلاگ (خودکار)'}),
             'code': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'خالی = خودکار', 'dir': 'ltr'}),
             'category': forms.Select(attrs={'class': TW['select']}),
             'description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 4}),
-            'specifications': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3, 'placeholder': '{"رنگ": "سفید", "وزن": "1kg"}'}),
             'unit': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'عدد / کیلوگرم / متر'}),
             'price': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت فروش (ریال)'}),
             'purchase_price': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'قیمت خرید (ریال)'}),
             'barcode': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'بارکد'}),
             'stock': forms.NumberInput(attrs={'class': TW['input']}),
             'reorder_point': forms.NumberInput(attrs={'class': TW['input']}),
-            'expiry_date': forms.TextInput(attrs={'class': TW['input'], 'placeholder': '1405/06/01 (اختیاری)', 'dir': 'ltr'}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['category'].empty_label = 'یک دسته‌بندی انتخاب کنید'
         if self.instance.pk:
             # Stock is set once at creation; afterwards it only moves through
             # inventory movements (disabled fields ignore posted values).
             self.fields['stock'].disabled = True
+            if self.instance.specifications:
+                self.fields['specs'].initial = '\n'.join(
+                    f'{k}: {v}' for k, v in self.instance.specifications.items())
+            if self.instance.expiry_date:
+                self.fields['expiry_date'].initial = self.instance.expiry_date.strftime('%Y/%m/%d')
+
+    def clean_specs(self):
+        """Parse 'key: value' lines into a dict for the JSONField."""
+        text = (self.cleaned_data.get('specs') or '').strip()
+        specs = {}
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if ':' in line:
+                key, value = line.split(':', 1)
+                specs[key.strip()] = value.strip()
+            else:
+                specs[line] = ''
+        return specs
+
+    def clean_expiry_date(self):
+        raw = (self.cleaned_data.get('expiry_date') or '').strip()
+        if not raw:
+            return None
+        parsed = parse_jalali_date(raw)
+        if parsed is None:
+            raise forms.ValidationError('تاریخ را به شکل ۱۴۰۵/۰۶/۰۱ وارد کنید یا خالی بگذارید.')
+        return parsed
+
+    def save(self, commit=True):
+        product = super().save(commit=False)
+        product.specifications = self.cleaned_data.get('specs') or {}
+        product.expiry_date = self.cleaned_data.get('expiry_date')
+        if commit:
+            product.save()
+        return product
 
 
-class CategoryForm(forms.ModelForm):
+class CategoryForm(AutoSlugModelForm):
     class Meta:
         model = Category
         fields = ['name', 'slug', 'parent', 'image', 'description', 'order', 'is_active']
@@ -104,7 +210,9 @@ class InvoiceForm(forms.ModelForm):
         }
 
 
-class BlogPostForm(forms.ModelForm):
+class BlogPostForm(AutoSlugModelForm):
+    slug_source = 'title'
+
     class Meta:
         model = BlogPost
         fields = ['title', 'slug', 'content', 'excerpt', 'image', 'is_published']
@@ -129,7 +237,9 @@ class AnnouncementForm(forms.ModelForm):
         }
 
 
-class ServiceForm(forms.ModelForm):
+class ServiceForm(AutoSlugModelForm):
+    slug_source = 'title'
+
     class Meta:
         model = Service
         fields = ['title', 'slug', 'description', 'icon', 'image', 'is_active', 'order']
@@ -144,7 +254,9 @@ class ServiceForm(forms.ModelForm):
         }
 
 
-class ProjectForm(forms.ModelForm):
+class ProjectForm(AutoSlugModelForm):
+    slug_source = 'title'
+
     class Meta:
         model = Project
         fields = ['title', 'slug', 'description', 'client', 'location', 'is_active']

@@ -193,6 +193,7 @@ class AdminProductCreateView(PanelPermissionMixin, CreateView):
         images = self.request.FILES.getlist('images')
         for i, img in enumerate(images[:5]):
             ProductImage.objects.create(product=self.object, image=img, order=i, is_primary=(i == 0))
+        log_action(self.request.user, 'create', self.object)
         return response
 
     def get_context_data(self, **kwargs):
