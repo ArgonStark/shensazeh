@@ -1090,6 +1090,125 @@ class AdminPartyImportView(PanelPermissionMixin, View):
         return redirect('admin_panel:party_list')
 
 
+# ─── Financial calendar (تقویم مالی) ─────────────────────────
+
+class AdminCalendarView(PanelPermissionMixin, TemplateView):
+    """Monthly Shamsi calendar. Events are queried live from cheque and
+    installment due dates plus manual reminders — nothing is pre-generated,
+    so no scheduled job is needed."""
+    permission_required = 'finance.view_reminder'
+    template_name = 'admin_panel/calendar/calendar.html'
+
+    def get_context_data(self, **kwargs):
+        import jdatetime
+
+        from finance.models import Reminder
+        from finance.text import parse_int
+        from installments.models import Installment
+
+        ctx = super().get_context_data(**kwargs)
+        today = jdatetime.date.today()
+        year = parse_int(self.request.GET.get('y'), today.year)
+        month = parse_int(self.request.GET.get('m'), today.month)
+        if not (1300 <= year <= 1500 and 1 <= month <= 12):
+            year, month = today.year, today.month
+
+        days_in_month = jdatetime.j_days_in_month[month - 1]
+        if month == 12 and jdatetime.date(year, 1, 1).isleap():
+            days_in_month = 30
+        month_start = jdatetime.date(year, month, 1)
+        month_end = jdatetime.date(year, month, days_in_month)
+
+        cheques = (Cheque.objects.filter(status='pending',
+                                         due_date__gte=month_start, due_date__lte=month_end)
+                   .select_related('party'))
+        installments = (Installment.objects
+                        .filter(paid_amount__lt=F('amount'),
+                                due_date__gte=month_start, due_date__lte=month_end)
+                        .select_related('plan__party', 'plan__invoice'))
+        reminders = Reminder.objects.filter(date__gte=month_start, date__lte=month_end)
+
+        events_by_day = {day: [] for day in range(1, days_in_month + 1)}
+        receivable = payable = 0
+        for cheque in cheques:
+            incoming = cheque.direction == 'received'
+            receivable += cheque.amount if incoming else 0
+            payable += 0 if incoming else cheque.amount
+            events_by_day[cheque.due_date.day].append({
+                'kind': 'cheque_in' if incoming else 'cheque_out',
+                'label': f'چک {cheque.serial} — {cheque.party.name}',
+                'amount': cheque.amount,
+            })
+        for installment in installments:
+            receivable += installment.remaining
+            events_by_day[installment.due_date.day].append({
+                'kind': 'installment',
+                'label': f'قسط {installment.seq} — {installment.plan.party.name}',
+                'amount': installment.remaining,
+                'url_pk': installment.plan_id,
+            })
+        for reminder in reminders:
+            events_by_day[reminder.date.day].append({
+                'kind': 'reminder',
+                'label': reminder.title,
+                'done': reminder.is_done,
+                'reminder_pk': reminder.pk,
+            })
+
+        # Grid: Jalali weeks start on Saturday (jdatetime.weekday: Saturday=0)
+        cells = [None] * month_start.weekday()
+        for day in range(1, days_in_month + 1):
+            cells.append({
+                'day': day,
+                'events': events_by_day[day],
+                'is_today': jdatetime.date(year, month, day) == today,
+            })
+        while len(cells) % 7:
+            cells.append(None)
+        ctx['weeks'] = [cells[i:i + 7] for i in range(0, len(cells), 7)]
+
+        prev_y, prev_m = (year - 1, 12) if month == 1 else (year, month - 1)
+        next_y, next_m = (year + 1, 1) if month == 12 else (year, month + 1)
+        ctx.update({
+            'year': year, 'month': month,
+            'month_name': jdatetime.date.j_months_fa[month - 1],
+            'prev_y': prev_y, 'prev_m': prev_m, 'next_y': next_y, 'next_m': next_m,
+            'month_receivable': receivable, 'month_payable': payable,
+            'weekday_names': ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'],
+            'today': today,
+        })
+        return ctx
+
+
+class AdminReminderCreateView(PanelPermissionMixin, View):
+    permission_required = 'finance.add_reminder'
+
+    def post(self, request):
+        from finance.models import Reminder
+        from finance.text import parse_jalali_date
+        title = request.POST.get('title', '').strip()
+        date = parse_jalali_date(request.POST.get('date', ''))
+        if not title or date is None:
+            messages.error(request, 'عنوان و تاریخ معتبر لازم است.')
+        else:
+            Reminder.objects.create(title=title, date=date,
+                                    note=request.POST.get('note', '').strip(),
+                                    created_by=request.user)
+            messages.success(request, 'یادآوری ثبت شد.')
+        return redirect(f"{reverse_lazy('admin_panel:calendar')}?y={date.year if date else ''}&m={date.month if date else ''}")
+
+
+class AdminReminderToggleView(PanelPermissionMixin, View):
+    permission_required = 'finance.change_reminder'
+
+    def post(self, request, pk):
+        from finance.models import Reminder
+        reminder = get_object_or_404(Reminder, pk=pk)
+        reminder.is_done = not reminder.is_done
+        reminder.save(update_fields=['is_done'])
+        return redirect(request.META.get('HTTP_REFERER') or 'admin_panel:calendar')
+
+
 # ─── Installments (فروش اقساطی) ──────────────────────────────
 
 class AdminInstallmentListView(PanelPermissionMixin, TemplateView):

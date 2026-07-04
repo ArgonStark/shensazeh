@@ -113,6 +113,54 @@ class CashFlowTests(TestCase):
         self.assertEqual(self.client.get(reverse('admin_panel:cashflow')).status_code, 403)
 
 
+class CalendarTests(TestCase):
+    def setUp(self):
+        from admin_panel.permissions import apply_role_defaults
+        self.accountant = User.objects.create_user(username='cal', mobile='09120008000', password='x', is_staff=True)
+        apply_role_defaults(self.accountant, 'accountant')
+        self.client.force_login(self.accountant)
+
+    def test_calendar_renders_with_events(self):
+        import jdatetime
+        from django.urls import reverse
+
+        from cheques.models import Cheque
+        from parties.models import Party
+        party = Party.objects.create(name='طرف تقویم')
+        today = jdatetime.date.today()
+        Cheque.objects.create(direction='received', party=party, serial='777', bank_name='ملی',
+                              amount=9_000_000, due_date=today)
+        response = self.client.get(reverse('admin_panel:calendar'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'چک 777')
+        self.assertContains(response, '900,000')  # receivable card in Toman
+
+    def test_month_navigation_and_bad_params(self):
+        from django.urls import reverse
+        self.assertEqual(self.client.get(reverse('admin_panel:calendar'), {'y': 1404, 'm': 12}).status_code, 200)
+        self.assertEqual(self.client.get(reverse('admin_panel:calendar'), {'y': 'x', 'm': 99}).status_code, 200)
+
+    def test_reminder_create_and_toggle(self):
+        from django.urls import reverse
+
+        from .models import Reminder
+        self.client.post(reverse('admin_panel:reminder_create'),
+                         {'title': 'تمدید بیمه انبار', 'date': '1405/01/20', 'note': ''})
+        reminder = Reminder.objects.get()
+        self.assertEqual(reminder.date.year, 1405)
+        self.client.post(reverse('admin_panel:reminder_toggle', args=[reminder.pk]))
+        reminder.refresh_from_db()
+        self.assertTrue(reminder.is_done)
+
+    def test_warehouse_has_no_calendar(self):
+        from admin_panel.permissions import apply_role_defaults
+        from django.urls import reverse
+        wh = User.objects.create_user(username='calw', mobile='09120008001', password='x', is_staff=True)
+        apply_role_defaults(wh, 'warehouse')
+        self.client.force_login(wh)
+        self.assertEqual(self.client.get(reverse('admin_panel:calendar')).status_code, 403)
+
+
 class BackupCommandTests(TestCase):
     def test_backup_and_rotation(self):
         import tempfile

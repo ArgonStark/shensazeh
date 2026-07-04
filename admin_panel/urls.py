@@ -36,6 +36,10 @@ urlpatterns = [
     path('invoices/<int:pk>/cancel/', views.AdminInvoiceCancelView.as_view(), name='invoice_cancel'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
+    # Financial calendar
+    path('calendar/', views.AdminCalendarView.as_view(), name='calendar'),
+    path('calendar/reminders/create/', views.AdminReminderCreateView.as_view(), name='reminder_create'),
+    path('calendar/reminders/<int:pk>/toggle/', views.AdminReminderToggleView.as_view(), name='reminder_toggle'),
     # Installments
     path('installments/', views.AdminInstallmentListView.as_view(), name='installment_list'),
     path('installments/plan/<int:pk>/', views.AdminInstallmentPlanDetailView.as_view(), name='installment_plan_detail'),

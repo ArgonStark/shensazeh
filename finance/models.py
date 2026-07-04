@@ -52,6 +52,25 @@ class CashTransaction(models.Model):
         return self.amount if self.kind == 'income' else -self.amount
 
 
+class Reminder(models.Model):
+    """A manual note on the financial calendar."""
+    title = models.CharField('عنوان', max_length=200)
+    date = jmodels.jDateField('تاریخ')
+    note = models.CharField('توضیح', max_length=300, blank=True)
+    is_done = models.BooleanField('انجام شد', default=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                   null=True, blank=True, verbose_name='ثبت‌کننده')
+    created_at = jmodels.jDateTimeField('تاریخ ثبت', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'یادآوری'
+        verbose_name_plural = 'یادآوری‌ها'
+        ordering = ['date', 'id']
+
+    def __str__(self):
+        return f'{self.title} — {self.date}'
+
+
 class AuditLog(models.Model):
     """Immutable record of a financial/administrative mutation.
 

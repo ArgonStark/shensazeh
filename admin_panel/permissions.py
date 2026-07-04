@@ -53,6 +53,10 @@ MODULES = {
         'label': 'فروش اقساطی',
         'models': ['installments.installmentplan', 'installments.installment'],
     },
+    'calendar': {
+        'label': 'تقویم مالی و یادآوری‌ها',
+        'models': ['finance.reminder'],
+    },
     'settings': {
         'label': 'تنظیمات سایت',
         'models': ['admin_panel.sitesetting'],
@@ -79,6 +83,7 @@ ROLE_DEFAULTS = {
         'cheques': ACTIONS,
         'cashflow': ACTIONS,
         'installments': ACTIONS,
+        'calendar': ACTIONS,
         'inventory': ['view'],
         'products': ['view'],
         'users': ['view'],
@@ -89,6 +94,7 @@ ROLE_DEFAULTS = {
         'parties': ['view', 'add', 'change'],
         'cheques': ['view', 'add'],
         'installments': ['view', 'add'],
+        'calendar': ['view', 'add', 'change'],
         'products': ['view'],
         'inventory': ['view'],
         'users': ['view'],
