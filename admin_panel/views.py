@@ -36,6 +36,7 @@ from . import permissions as panel_permissions
 from .forms import (
     ProductForm, CategoryForm, InventoryEntryForm,
     BlogPostForm, AnnouncementForm, PartyForm, PaymentForm,
+    CashTransactionForm, ExpenseCategoryForm,
     ChequeForm, ChequeBookForm, ChequePrintLayoutForm,
     ServiceForm, ProjectForm, StaffForm,
 )
@@ -1058,6 +1059,109 @@ class AdminPartyImportView(PanelPermissionMixin, View):
             created += 1
         messages.success(request, f'{created} طرف حساب وارد شد ({skipped} رد شد).')
         return redirect('admin_panel:party_list')
+
+
+# ─── Cash flow (هزینه و درآمد) ───────────────────────────────
+
+class AdminCashFlowView(PanelPermissionMixin, ListView):
+    """Income/expense register + monthly cash-flow summary."""
+    permission_required = 'finance.view_cashtransaction'
+    template_name = 'admin_panel/cashflow/cashflow.html'
+    context_object_name = 'transactions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from finance.models import CashTransaction
+        qs = CashTransaction.objects.select_related('category', 'created_by')
+        params = self.request.GET
+        if params.get('kind') in ('income', 'expense'):
+            qs = qs.filter(kind=params['kind'])
+        if params.get('category', '').isdigit():
+            qs = qs.filter(category_id=params['category'])
+        return qs
+
+    def get_context_data(self, **kwargs):
+        import jdatetime
+
+        from finance.models import CashTransaction, ExpenseCategory
+        ctx = super().get_context_data(**kwargs)
+        today = jdatetime.date.today()
+
+        # This Jalali month
+        month_start = today.replace(day=1)
+        month_qs = CashTransaction.objects.filter(date__gte=month_start, date__lte=today)
+        ctx['month_income'] = month_qs.filter(kind='income').aggregate(t=Sum('amount'))['t'] or 0
+        ctx['month_expense'] = month_qs.filter(kind='expense').aggregate(t=Sum('amount'))['t'] or 0
+        ctx['month_net'] = ctx['month_income'] - ctx['month_expense']
+
+        # Last 6 Jalali months (chart, Toman)
+        labels, incomes, expenses = [], [], []
+        year, month = today.year, today.month
+        points = []
+        for _ in range(6):
+            points.append((year, month))
+            month -= 1
+            if month == 0:
+                year, month = year - 1, 12
+        for y, m in reversed(points):
+            start = jdatetime.date(y, m, 1)
+            days = jdatetime.j_days_in_month[m - 1] + (1 if m == 12 and start.isleap() else 0)
+            end = jdatetime.date(y, m, days)
+            month_data = CashTransaction.objects.filter(date__gte=start, date__lte=end)
+            labels.append(f'{y}/{m}')
+            incomes.append((month_data.filter(kind='income').aggregate(t=Sum('amount'))['t'] or 0) // 10)
+            expenses.append((month_data.filter(kind='expense').aggregate(t=Sum('amount'))['t'] or 0) // 10)
+        ctx['flow_labels'] = json.dumps(labels)
+        ctx['flow_income'] = json.dumps(incomes)
+        ctx['flow_expense'] = json.dumps(expenses)
+
+        ctx['form'] = CashTransactionForm()
+        ctx['category_form'] = ExpenseCategoryForm()
+        ctx['categories'] = ExpenseCategory.objects.filter(is_active=True)
+        ctx['f_kind'] = self.request.GET.get('kind', '')
+        ctx['f_category'] = self.request.GET.get('category', '')
+        return ctx
+
+
+class AdminCashTransactionCreateView(PanelPermissionMixin, View):
+    permission_required = 'finance.add_cashtransaction'
+
+    def post(self, request):
+        form = CashTransactionForm(request.POST)
+        if form.is_valid():
+            tx = form.save(commit=False)
+            tx.created_by = request.user
+            tx.save()
+            log_action(request.user, 'create', tx)
+            messages.success(request, 'تراکنش ثبت شد.')
+        else:
+            messages.error(request, ' — '.join(e for errs in form.errors.values() for e in errs))
+        return redirect('admin_panel:cashflow')
+
+
+class AdminCashTransactionDeleteView(PanelPermissionMixin, View):
+    permission_required = 'finance.delete_cashtransaction'
+
+    def post(self, request, pk):
+        from finance.models import CashTransaction
+        tx = get_object_or_404(CashTransaction, pk=pk)
+        log_action(request.user, 'delete', tx, before=model_snapshot(tx))
+        tx.delete()
+        messages.success(request, 'تراکنش حذف شد.')
+        return redirect('admin_panel:cashflow')
+
+
+class AdminExpenseCategoryCreateView(PanelPermissionMixin, View):
+    permission_required = 'finance.add_expensecategory'
+
+    def post(self, request):
+        form = ExpenseCategoryForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'دسته جدید ساخته شد.')
+        else:
+            messages.error(request, 'نام دسته تکراری یا نامعتبر است.')
+        return redirect('admin_panel:cashflow')
 
 
 # ─── Cheques (چک‌ها) ─────────────────────────────────────────

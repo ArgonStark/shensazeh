@@ -45,6 +45,10 @@ MODULES = {
         'label': 'کاربران و کارکنان',
         'models': ['accounts.user', 'accounts.staffprofile'],
     },
+    'cashflow': {
+        'label': 'هزینه‌ها و درآمدها',
+        'models': ['finance.cashtransaction', 'finance.expensecategory'],
+    },
     'settings': {
         'label': 'تنظیمات سایت',
         'models': ['admin_panel.sitesetting'],
@@ -69,6 +73,7 @@ ROLE_DEFAULTS = {
         'invoices': ACTIONS,
         'parties': ACTIONS,
         'cheques': ACTIONS,
+        'cashflow': ACTIONS,
         'inventory': ['view'],
         'products': ['view'],
         'users': ['view'],

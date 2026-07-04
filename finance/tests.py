@@ -58,6 +58,61 @@ class FilterTests(TestCase):
         self.assertEqual(finance_tags.fa_digits(45), '۴۵')
 
 
+class CashFlowTests(TestCase):
+    def setUp(self):
+        from admin_panel.permissions import apply_role_defaults
+        self.accountant = User.objects.create_user(username='cf', mobile='09120005000', password='x', is_staff=True)
+        apply_role_defaults(self.accountant, 'accountant')
+        self.client.force_login(self.accountant)
+
+    def test_create_category_and_transaction(self):
+        from django.urls import reverse
+        self.client.post(reverse('admin_panel:expense_category_create'),
+                         {'name': 'کرایه حمل', 'kind': 'expense'})
+        from .models import CashTransaction, ExpenseCategory
+        category = ExpenseCategory.objects.get(name='کرایه حمل')
+        response = self.client.post(reverse('admin_panel:cashflow_create'), {
+            'kind': 'expense', 'category': category.pk, 'amount': 3_500_000,
+            'date': '۱۴۰۴/۰۴/۱۰', 'description': 'نیسان بار', 'reference': '',
+        })
+        self.assertEqual(response.status_code, 302)
+        tx = CashTransaction.objects.get()
+        self.assertEqual(tx.amount, 3_500_000)
+        self.assertEqual(tx.date.year, 1404)
+        self.assertEqual(tx.signed_amount, -3_500_000)
+
+    def test_kind_category_mismatch_rejected(self):
+        from django.urls import reverse
+
+        from .models import CashTransaction, ExpenseCategory
+        category = ExpenseCategory.objects.create(name='فروش ضایعات', kind='income')
+        self.client.post(reverse('admin_panel:cashflow_create'), {
+            'kind': 'expense', 'category': category.pk, 'amount': 100,
+            'date': '1404/04/10', 'description': '', 'reference': '',
+        })
+        self.assertEqual(CashTransaction.objects.count(), 0)
+
+    def test_cashflow_page_renders_summary(self):
+        import jdatetime
+        from django.urls import reverse
+
+        from .models import CashTransaction, ExpenseCategory
+        income_cat = ExpenseCategory.objects.create(name='درآمد اجاره', kind='income')
+        CashTransaction.objects.create(kind='income', category=income_cat, amount=10_000_000,
+                                       date=jdatetime.date.today())
+        response = self.client.get(reverse('admin_panel:cashflow'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '1,000,000')  # 10M Rial → 1M Toman
+
+    def test_warehouse_cannot_see_cashflow(self):
+        from admin_panel.permissions import apply_role_defaults
+        from django.urls import reverse
+        wh = User.objects.create_user(username='cfw', mobile='09120005001', password='x', is_staff=True)
+        apply_role_defaults(wh, 'warehouse')
+        self.client.force_login(wh)
+        self.assertEqual(self.client.get(reverse('admin_panel:cashflow')).status_code, 403)
+
+
 class BackupCommandTests(TestCase):
     def test_backup_and_rotation(self):
         import tempfile

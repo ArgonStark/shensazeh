@@ -306,6 +306,57 @@ class ChequePrintLayoutForm(forms.ModelForm):
         widgets['bank_name'] = forms.TextInput(attrs={'class': TW['input']})
 
 
+class CashTransactionForm(forms.ModelForm):
+    date = forms.CharField(
+        label='تاریخ (شمسی)',
+        widget=forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr', 'placeholder': '1404/04/13'}),
+    )
+
+    class Meta:
+        from finance.models import CashTransaction
+        model = CashTransaction
+        fields = ['kind', 'category', 'amount', 'date', 'description', 'reference']
+        widgets = {
+            'kind': forms.Select(attrs={'class': TW['select']}),
+            'category': forms.Select(attrs={'class': TW['select']}),
+            'amount': forms.NumberInput(attrs={'class': TW['input'], 'placeholder': 'مبلغ به ریال', 'min': 1}),
+            'description': forms.TextInput(attrs={'class': TW['input']}),
+            'reference': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        import jdatetime
+        from finance.models import ExpenseCategory
+        self.fields['category'].queryset = ExpenseCategory.objects.filter(is_active=True)
+        self.initial.setdefault('date', jdatetime.date.today().strftime('%Y/%m/%d'))
+
+    def clean_date(self):
+        parsed = parse_jalali_date(self.cleaned_data['date'])
+        if parsed is None:
+            raise forms.ValidationError('تاریخ را به شکل ۱۴۰۴/۰۴/۱۳ وارد کنید.')
+        return parsed
+
+    def clean(self):
+        cleaned = super().clean()
+        category = cleaned.get('category')
+        kind = cleaned.get('kind')
+        if category and kind and category.kind != kind:
+            raise forms.ValidationError('دسته انتخاب‌شده با نوع تراکنش هم‌خوان نیست.')
+        return cleaned
+
+
+class ExpenseCategoryForm(forms.ModelForm):
+    class Meta:
+        from finance.models import ExpenseCategory
+        model = ExpenseCategory
+        fields = ['name', 'kind']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'مثلاً کرایه حمل'}),
+            'kind': forms.Select(attrs={'class': TW['select']}),
+        }
+
+
 class StaffForm(forms.Form):
     mobile = forms.CharField(
         max_length=11,

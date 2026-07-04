@@ -1,0 +1,221 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}هزینه‌ها و درآمدها{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">هزینه‌ها و درآمدها</h1>
+        <p class="text-sm text-gray-500 mt-1">ثبت درآمد و هزینه خارج از اسناد خرید و فروش</p>
+    </div>
+    {% if perms.finance.add_cashtransaction %}
+    <div class="flex items-center gap-2">
+        <button @click="$dispatch('open-category')" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm font-medium">دسته جدید</button>
+        <button @click="$dispatch('open-tx')" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            ثبت تراکنش
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="{ txModal: false, catModal: false, deleteModal: false, deleteUrl: '' }"
+     @open-tx.window="txModal = true" @open-category.window="catModal = true">
+
+    {# --- Month summary --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">درآمد این ماه</p>
+            <p class="text-xl font-bold text-green-600 mt-1">{{ month_income|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">هزینه این ماه</p>
+            <p class="text-xl font-bold text-red-600 mt-1">{{ month_expense|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">خالص این ماه</p>
+            <p class="text-xl font-bold {% if month_net >= 0 %}text-green-600{% else %}text-red-600{% endif %} mt-1">
+                {{ month_net|toman|cut:'-' }}{% if month_net < 0 %}-{% endif %} <span class="text-xs font-normal text-gray-400">تومان</span>
+            </p>
+        </div>
+    </div>
+
+    {# --- Chart --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">جریان نقدی ۶ ماه اخیر (تومان)</h3>
+        <canvas id="flowChart" height="90"></canvas>
+    </div>
+
+    {# --- Filters + table --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <form method="get" class="p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-3">
+            <select name="kind" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                <option value="">درآمد و هزینه</option>
+                <option value="income" {% if f_kind == 'income' %}selected{% endif %}>درآمد</option>
+                <option value="expense" {% if f_kind == 'expense' %}selected{% endif %}>هزینه</option>
+            </select>
+            <select name="category" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                <option value="">همه دسته‌ها</option>
+                {% for cat in categories %}
+                <option value="{{ cat.pk }}" {% if f_category == cat.pk|stringformat:'s' %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">فیلتر</button>
+        </form>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نوع</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">دسته</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">شرح</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مبلغ (تومان)</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">ثبت‌کننده</th>
+                        <th class="px-4 py-3 w-12"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for tx in transactions %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{{ tx.date|date:'Y/m/d' }}</td>
+                        <td class="px-4 py-3">
+                            {% if tx.kind == 'income' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">درآمد</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">هزینه</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-800">{{ tx.category.name }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ tx.description|default:'—' }}</td>
+                        <td class="px-4 py-3 font-medium {% if tx.kind == 'income' %}text-green-600{% else %}text-red-600{% endif %}">{{ tx.amount|toman }}</td>
+                        <td class="px-4 py-3 text-xs text-gray-500">{{ tx.created_by|default:'—' }}</td>
+                        <td class="px-4 py-3">
+                            {% if perms.finance.delete_cashtransaction %}
+                            <button @click="deleteUrl = '{% url 'admin_panel:cashflow_delete' tx.pk %}'; deleteModal = true"
+                                    class="p-1 text-gray-300 hover:text-red-500 transition" aria-label="حذف">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">تراکنشی ثبت نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'admin_panel/components/pagination.html' %}
+    </div>
+
+    {# --- Transaction modal --- #}
+    {% if perms.finance.add_cashtransaction %}
+    <div x-show="txModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="txModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">ثبت درآمد / هزینه</h3>
+            </div>
+            <form method="post" action="{% url 'admin_panel:cashflow_create' %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="{{ form.kind.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نوع</label>
+                        {{ form.kind }}
+                    </div>
+                    <div>
+                        <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">دسته</label>
+                        {{ form.category }}
+                    </div>
+                </div>
+                <div>
+                    <label for="{{ form.amount.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">مبلغ (ریال)</label>
+                    {{ form.amount }}
+                </div>
+                <div>
+                    <label for="{{ form.date.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">تاریخ (شمسی)</label>
+                    {{ form.date }}
+                </div>
+                <div>
+                    <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شرح</label>
+                    {{ form.description }}
+                </div>
+                <div>
+                    <label for="{{ form.reference.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شماره مرجع</label>
+                    {{ form.reference }}
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ثبت</button>
+                    <button type="button" @click="txModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# --- Category modal --- #}
+    <div x-show="catModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="catModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">دسته جدید</h3>
+            </div>
+            <form method="post" action="{% url 'admin_panel:expense_category_create' %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ category_form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نام دسته</label>
+                    {{ category_form.name }}
+                </div>
+                <div>
+                    <label for="{{ category_form.kind.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نوع</label>
+                    {{ category_form.kind }}
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ساخت دسته</button>
+                    <button type="button" @click="catModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Delete modal --- #}
+    <div x-show="deleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="deleteModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm relative z-10">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">حذف تراکنش</h3>
+            <p class="text-sm text-gray-500 mb-6">این تراکنش حذف می‌شود (در حسابرسی ثبت می‌ماند). ادامه می‌دهید؟</p>
+            <div class="flex items-center gap-3 justify-end">
+                <button @click="deleteModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                <form :action="deleteUrl" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition">حذف</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    new Chart(document.getElementById('flowChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ flow_labels|safe }},
+            datasets: [
+                { label: 'درآمد', data: {{ flow_income|safe }}, backgroundColor: '#16a34a' },
+                { label: 'هزینه', data: {{ flow_expense|safe }}, backgroundColor: '#dc2626' },
+            ],
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { font: { family: 'Vazirmatn' } } } },
+            scales: { y: { ticks: { callback: v => v.toLocaleString('fa-IR') } } },
+        },
+    });
+});
+</script>
+{% endblock %}
