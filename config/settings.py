@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'parties',
     'cheques',
     'installments',
+    'crm',
 ]
 
 MIDDLEWARE = [
@@ -163,7 +164,8 @@ REST_FRAMEWORK = {
 TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_CHANNEL_ID = config('TELEGRAM_CHANNEL_ID', default='')
 
-# SMS
+# SMS — provider selected by env: 'console' (dev) or 'kavenegar'
+SMS_PROVIDER = config('SMS_PROVIDER', default='console')
 SMS_API_KEY = config('SMS_API_KEY', default='')
 SMS_SENDER = config('SMS_SENDER', default='')
 

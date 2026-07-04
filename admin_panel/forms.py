@@ -167,6 +167,7 @@ class SiteSettingForm(forms.ModelForm):
             'instagram', 'telegram', 'whatsapp', 'linkedin', 'copyright_text',
             'vat_rate', 'legal_name', 'economic_code', 'national_id',
             'registration_number', 'postal_code',
+            'invoice_sms_enabled', 'invoice_sms_template',
         ]
         widgets = {
             'site_name': forms.TextInput(attrs={'class': TW['input']}),
@@ -188,6 +189,8 @@ class SiteSettingForm(forms.ModelForm):
             'national_id': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
             'registration_number': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
             'postal_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'invoice_sms_enabled': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'invoice_sms_template': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2}),
         }
 
 
@@ -355,6 +358,27 @@ class ExpenseCategoryForm(forms.ModelForm):
             'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'مثلاً کرایه حمل'}),
             'kind': forms.Select(attrs={'class': TW['select']}),
         }
+
+
+class CampaignForm(forms.ModelForm):
+    class Meta:
+        from crm.models import Campaign
+        model = Campaign
+        fields = ['name', 'message', 'party_type', 'tag']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'مثلاً تخفیف پایان فصل'}),
+            'message': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 4,
+                                             'placeholder': '{name} عزیز، ...'}),
+            'party_type': forms.Select(attrs={'class': TW['select']}),
+            'tag': forms.Select(attrs={'class': TW['select']}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from parties.models import Party
+        self.fields['party_type'].widget.choices = [('', 'همه طرف حساب‌ها')] + list(Party.TYPE_CHOICES)
+        self.fields['party_type'].required = False
+        self.fields['tag'].required = False
 
 
 class StaffForm(forms.Form):

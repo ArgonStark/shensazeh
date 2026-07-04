@@ -36,7 +36,7 @@ from . import permissions as panel_permissions
 from .forms import (
     ProductForm, CategoryForm, InventoryEntryForm,
     BlogPostForm, AnnouncementForm, PartyForm, PaymentForm,
-    CashTransactionForm, ExpenseCategoryForm,
+    CashTransactionForm, ExpenseCategoryForm, CampaignForm,
     ChequeForm, ChequeBookForm, ChequePrintLayoutForm,
     ServiceForm, ProjectForm, StaffForm,
 )
@@ -538,6 +538,17 @@ def _resolve_party(request):
     return party
 
 
+
+def _notify_invoice_issued(invoice, user):
+    """Best-effort post-issue SMS — must never break the financial flow."""
+    try:
+        from crm.services import send_invoice_sms
+        send_invoice_sms(invoice, user)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception('post-invoice SMS failed for %s', invoice.pk)
+
+
 class AdminInvoiceListView(PanelPermissionMixin, ListView):
     permission_required = 'orders.view_invoice'
     template_name = 'admin_panel/invoices/invoice_list.html'
@@ -686,6 +697,7 @@ class AdminInvoiceCreateView(PanelPermissionMixin, _InvoiceFormMixin, View):
                     if not request.user.has_perm('orders.change_invoice'):
                         raise InvoiceError('دسترسی صدور سند را ندارید.')
                     invoice = issue_invoice(invoice, request.user)
+                    _notify_invoice_issued(invoice, request.user)
                     messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
                 else:
                     log_action(request.user, 'create', invoice)
@@ -722,6 +734,7 @@ class AdminInvoiceEditView(PanelPermissionMixin, _InvoiceFormMixin, View):
                 self._apply_post(request, invoice)
                 if request.POST.get('action') == 'issue':
                     invoice = issue_invoice(invoice, request.user)
+                    _notify_invoice_issued(invoice, request.user)
                     messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
                 else:
                     log_action(request.user, 'update', invoice, before=before, after=model_snapshot(invoice))
@@ -751,6 +764,7 @@ class AdminInvoiceIssueView(PanelPermissionMixin, View):
         invoice = get_object_or_404(Invoice, pk=pk)
         try:
             invoice = issue_invoice(invoice, request.user)
+            _notify_invoice_issued(invoice, request.user)
             messages.success(request, f'سند {invoice.invoice_number} صادر شد.')
         except (InvoiceError, StockError, LedgerError) as exc:
             messages.error(request, str(exc))
@@ -1088,6 +1102,82 @@ class AdminPartyImportView(PanelPermissionMixin, View):
             created += 1
         messages.success(request, f'{created} طرف حساب وارد شد ({skipped} رد شد).')
         return redirect('admin_panel:party_list')
+
+
+# ─── CRM / SMS (پیامک) ───────────────────────────────────────
+
+class AdminSMSLogListView(PanelPermissionMixin, ListView):
+    permission_required = 'crm.view_smslog'
+    template_name = 'admin_panel/crm/sms_log_list.html'
+    context_object_name = 'logs'
+    paginate_by = 30
+
+    def get_queryset(self):
+        from crm.models import SMSLog
+        qs = SMSLog.objects.select_related('party', 'campaign')
+        status = self.request.GET.get('status', '')
+        if status in ('sent', 'failed'):
+            qs = qs.filter(status=status)
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(mobile__icontains=q) | Q(message__icontains=q) | Q(party__name__icontains=q))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['selected_status'] = self.request.GET.get('status', '')
+        return ctx
+
+
+class AdminCampaignListView(PanelPermissionMixin, ListView):
+    permission_required = 'crm.view_campaign'
+    template_name = 'admin_panel/crm/campaign_list.html'
+    context_object_name = 'campaigns'
+    paginate_by = 20
+
+    def get_queryset(self):
+        from crm.models import Campaign
+        return Campaign.objects.select_related('tag', 'created_by')
+
+    def get_context_data(self, **kwargs):
+        from crm.services import campaign_recipients
+        ctx = super().get_context_data(**kwargs)
+        ctx['form'] = CampaignForm()
+        ctx['recipient_counts'] = {c.pk: campaign_recipients(c).count() for c in ctx['campaigns']}
+        return ctx
+
+
+class AdminCampaignCreateView(PanelPermissionMixin, View):
+    permission_required = 'crm.add_campaign'
+
+    def post(self, request):
+        form = CampaignForm(request.POST)
+        if form.is_valid():
+            campaign = form.save(commit=False)
+            campaign.created_by = request.user
+            campaign.save()
+            log_action(request.user, 'create', campaign)
+            messages.success(request, 'کمپین ساخته شد؛ پس از بازبینی «ارسال» را بزنید.')
+        else:
+            messages.error(request, 'اطلاعات کمپین نامعتبر است.')
+        return redirect('admin_panel:campaign_list')
+
+
+class AdminCampaignSendView(PanelPermissionMixin, View):
+    permission_required = 'crm.change_campaign'
+
+    def post(self, request, pk):
+        from crm.models import Campaign
+        from crm.services import send_campaign
+        campaign = get_object_or_404(Campaign, pk=pk)
+        try:
+            sent = send_campaign(campaign, request.user)
+            log_action(request.user, 'status', campaign)
+            messages.success(request, f'کمپین «{campaign.name}» به {sent} شماره ارسال شد.')
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        return redirect('admin_panel:campaign_list')
 
 
 # ─── Financial calendar (تقویم مالی) ─────────────────────────

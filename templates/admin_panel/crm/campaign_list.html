@@ -1,0 +1,115 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}کمپین‌های پیامکی{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">کمپین‌های پیامکی</h1>
+        <p class="text-sm text-gray-500 mt-1">ارسال گروهی به بخش‌های فیلترشده طرف حساب‌ها</p>
+    </div>
+    {% if perms.crm.add_campaign %}
+    <button @click="$dispatch('open-campaign')" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        کمپین جدید
+    </button>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{ campaignModal: false }" @open-campaign.window="campaignModal = true">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">نام</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">فیلتر</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">گیرندگان</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">عملیات</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for campaign in campaigns %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3">
+                            <span class="font-medium text-gray-800">{{ campaign.name }}</span>
+                            <span class="block text-xs text-gray-400 max-w-sm truncate" title="{{ campaign.message }}">{{ campaign.message|truncatechars:60 }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-600">
+                            {{ campaign.party_type_label }}
+                            {% if campaign.tag %} · برچسب: {{ campaign.tag.name }}{% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">
+                            {% for pk, count in recipient_counts.items %}{% if pk == campaign.pk %}{{ count }} شماره{% endif %}{% endfor %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if campaign.is_sent %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                                ارسال شد ({{ campaign.sent_count }})
+                            </span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">پیش‌نویس</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if not campaign.is_sent and perms.crm.change_campaign %}
+                            <form method="post" action="{% url 'admin_panel:campaign_send' campaign.pk %}" class="inline"
+                                  onsubmit="return confirm('پیامک برای همه گیرندگان این کمپین ارسال می‌شود. مطمئن هستید؟');">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition">ارسال</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">کمپینی ساخته نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'admin_panel/components/pagination.html' %}
+    </div>
+
+    {# Create modal #}
+    {% if perms.crm.add_campaign %}
+    <div x-show="campaignModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="fixed inset-0 bg-black/50" @click="campaignModal = false"></div>
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md relative z-10">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">کمپین جدید</h3>
+                <p class="text-xs text-gray-500 mt-1">متغیرهای متن: {name} {mobile} {city}</p>
+            </div>
+            <form method="post" action="{% url 'admin_panel:campaign_create' %}" class="p-6 space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نام کمپین</label>
+                    {{ form.name }}
+                </div>
+                <div>
+                    <label for="{{ form.message.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">متن پیام</label>
+                    {{ form.message }}
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="{{ form.party_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">نوع طرف حساب</label>
+                        {{ form.party_type }}
+                    </div>
+                    <div>
+                        <label for="{{ form.tag.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">برچسب</label>
+                        {{ form.tag }}
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">ساخت کمپین</button>
+                    <button type="button" @click="campaignModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">انصراف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

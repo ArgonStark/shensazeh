@@ -36,6 +36,11 @@ urlpatterns = [
     path('invoices/<int:pk>/cancel/', views.AdminInvoiceCancelView.as_view(), name='invoice_cancel'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
+    # CRM / SMS
+    path('sms/', views.AdminSMSLogListView.as_view(), name='sms_log_list'),
+    path('sms/campaigns/', views.AdminCampaignListView.as_view(), name='campaign_list'),
+    path('sms/campaigns/create/', views.AdminCampaignCreateView.as_view(), name='campaign_create'),
+    path('sms/campaigns/<int:pk>/send/', views.AdminCampaignSendView.as_view(), name='campaign_send'),
     # Financial calendar
     path('calendar/', views.AdminCalendarView.as_view(), name='calendar'),
     path('calendar/reminders/create/', views.AdminReminderCreateView.as_view(), name='reminder_create'),

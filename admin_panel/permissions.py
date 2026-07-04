@@ -57,6 +57,10 @@ MODULES = {
         'label': 'تقویم مالی و یادآوری‌ها',
         'models': ['finance.reminder'],
     },
+    'crm': {
+        'label': 'پیامک و کمپین‌ها',
+        'models': ['crm.campaign', 'crm.smslog'],
+    },
     'settings': {
         'label': 'تنظیمات سایت',
         'models': ['admin_panel.sitesetting'],
@@ -95,6 +99,7 @@ ROLE_DEFAULTS = {
         'cheques': ['view', 'add'],
         'installments': ['view', 'add'],
         'calendar': ['view', 'add', 'change'],
+        'crm': ['view', 'add', 'change'],
         'products': ['view'],
         'inventory': ['view'],
         'users': ['view'],

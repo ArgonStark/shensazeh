@@ -30,6 +30,13 @@ class SiteSetting(models.Model):
     copyright_text = models.CharField('متن کپی‌رایت', max_length=300, blank=True,
                                       default='تمامی حقوق مادی و معنوی این وب‌سایت متعلق به فروشگاه شن‌سازه می‌باشد.')
 
+    # Post-invoice SMS (opt-in)
+    invoice_sms_enabled = models.BooleanField('ارسال پیامک پس از صدور فاکتور', default=False)
+    invoice_sms_template = models.CharField(
+        'متن پیامک فاکتور', max_length=300,
+        default='{name} عزیز، فاکتور {number} به مبلغ {amount} تومان صادر شد. {shop}',
+        help_text='متغیرها: {name} {number} {amount} {due_date} {shop}')
+
     # Invoicing / legal identity (printed on official invoices)
     vat_rate = models.PositiveSmallIntegerField('نرخ پیش‌فرض مالیات بر ارزش افزوده (٪)', default=10)
     legal_name = models.CharField('نام رسمی فروشنده', max_length=200, blank=True)

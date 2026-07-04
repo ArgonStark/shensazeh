@@ -235,6 +235,38 @@
         </div>
         {% endif %}
 
+        {% if perms.crm.view_smslog %}
+        {# 4.6 پیامک #}
+        <div x-data="{ open: {% if url_name == 'sms_log_list' or url_name == 'campaign_list' %}true{% else %}false{% endif %} }">
+            <button @click="open = !open"
+                    class="flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm hover:bg-white/10 transition-colors">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
+                    </svg>
+                    <span>پیامک</span>
+                </div>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                </svg>
+            </button>
+            <div x-show="open" x-collapse class="mt-1 mr-5 space-y-1 border-r border-gray-700/50 pr-3">
+                <a href="{% url 'admin_panel:sms_log_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'sms_log_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    پیامک‌های ارسالی
+                </a>
+                {% if perms.crm.view_campaign %}
+                <a href="{% url 'admin_panel:campaign_list' %}"
+                   class="block px-3 py-2 rounded-lg text-sm transition-colors
+                          {% if url_name == 'campaign_list' %}bg-indigo-600 text-white{% else %}hover:bg-white/10{% endif %}">
+                    کمپین‌ها
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         {% if perms.blog.view_blogpost %}
         {# 5. وبلاگ #}
         <div x-data="{ open: {% if url_name == 'post_list' or url_name == 'announcement_list' %}true{% else %}false{% endif %} }">

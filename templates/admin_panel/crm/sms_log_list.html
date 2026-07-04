@@ -1,0 +1,69 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+
+{% block title %}پیامک‌های ارسالی{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">پیامک‌های ارسالی</h1>
+        <p class="text-sm text-gray-500 mt-1">سابقه کامل پیامک‌های تراکنشی و کمپینی</p>
+    </div>
+    {% if perms.crm.view_campaign %}
+    <a href="{% url 'admin_panel:campaign_list' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium">کمپین‌ها</a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col sm:flex-row gap-3">
+        <input type="text" name="q" value="{{ q }}" placeholder="موبایل، متن یا نام طرف حساب..."
+               class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        <select name="status" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <option value="">همه وضعیت‌ها</option>
+            <option value="sent" {% if selected_status == 'sent' %}selected{% endif %}>ارسال شد</option>
+            <option value="failed" {% if selected_status == 'failed' %}selected{% endif %}>ناموفق</option>
+        </select>
+        <button type="submit" class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">فیلتر</button>
+    </form>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">زمان</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">موبایل</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">طرف حساب</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">متن</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">کمپین</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for log in logs %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{{ log.created_at|date:'Y/m/d H:i' }}</td>
+                        <td class="px-4 py-3 font-mono text-xs" dir="ltr">{{ log.mobile }}</td>
+                        <td class="px-4 py-3 text-gray-800">{{ log.party.name|default:'—' }}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs max-w-md truncate" title="{{ log.message }}">{{ log.message|truncatechars:60 }}</td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">{{ log.campaign.name|default:'—' }}</td>
+                        <td class="px-4 py-3">
+                            {% if log.status == 'sent' %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">ارسال شد</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">ناموفق</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">پیامکی ارسال نشده است</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'admin_panel/components/pagination.html' %}
+    </div>
+</div>
+{% endblock %}
