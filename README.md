@@ -1,4 +1,4 @@
-# Sazandeh (شن‌سازه)
+# Shensazeh (شن‌سازه)
 
 A Django-based business management system for a Persian tools & construction-materials
 company. It combines a public storefront, a Telegram bot, and a full staff back-office
