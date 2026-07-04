@@ -167,6 +167,24 @@
             {% endif %}
         </div>
 
+        {# Installment plan #}
+        {% if perms.installments.view_installmentplan %}
+        {% if invoice.installment_plan %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-sm font-semibold text-gray-800 mb-2">طرح اقساط</h3>
+            <p class="text-sm text-gray-600">{{ invoice.installment_plan.count }} قسط — {{ invoice.installment_plan.get_method_display }}</p>
+            <p class="text-sm mt-1">مانده: <span class="{% if invoice.installment_plan.remaining %}text-red-600{% else %}text-green-600{% endif %} font-medium">{{ invoice.installment_plan.remaining|toman }} تومان</span></p>
+            <a href="{% url 'admin_panel:installment_plan_detail' invoice.installment_plan.pk %}" class="inline-block mt-2 text-xs text-indigo-600 hover:text-indigo-800">جدول اقساط ←</a>
+        </div>
+        {% elif invoice.status == 'issued' and invoice.doc_type == 'sale' and invoice.remaining_amount and perms.installments.add_installmentplan %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-sm font-semibold text-gray-800 mb-2">فروش اقساطی</h3>
+            <p class="text-xs text-gray-500 mb-3">مانده این فاکتور را می‌توان قسط‌بندی کرد.</p>
+            <a href="{% url 'admin_panel:installment_plan_create' invoice.pk %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition text-sm font-medium">ایجاد طرح اقساط</a>
+        </div>
+        {% endif %}
+        {% endif %}
+
         {# Linked cheques #}
         {% if perms.cheques.view_cheque %}
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

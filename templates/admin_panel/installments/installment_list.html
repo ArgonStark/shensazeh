@@ -1,0 +1,81 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load finance_tags %}
+
+{% block title %}فروش اقساطی{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <h1 class="text-2xl font-bold text-gray-800">فروش اقساطی</h1>
+    <p class="text-sm text-gray-500 mt-1">امروز: {{ today|date:'Y/m/d' }} — معوقات، اقساط پیش‌رو و مانده هر طرف حساب</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">جمع اقساط معوق</p>
+            <p class="text-xl font-bold text-red-600 mt-1">{{ overdue_total|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <p class="text-sm text-gray-500">کل مانده طرح‌های باز</p>
+            <p class="text-xl font-bold text-gray-800 mt-1">{{ outstanding_total|toman }} <span class="text-xs font-normal text-gray-400">تومان</span></p>
+        </div>
+    </div>
+
+    {# Overdue #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 bg-red-50/50">
+            <h3 class="text-lg font-semibold text-red-700">اقساط معوق</h3>
+        </div>
+        {% include 'admin_panel/installments/_installment_table.html' with rows=overdue %}
+    </div>
+
+    {# Upcoming #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">اقساط پیش‌رو</h3>
+        </div>
+        {% include 'admin_panel/installments/_installment_table.html' with rows=upcoming %}
+    </div>
+
+    {# Per-party outstanding #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">مانده اقساط هر طرف حساب</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">طرف حساب</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">فاکتور</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">روش</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">کل قابل پرداخت</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مانده (تومان)</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for plan in open_plans %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ plan.party.name }}</td>
+                        <td class="px-4 py-3 font-mono text-xs text-indigo-700" dir="ltr">{{ plan.invoice.invoice_number }}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs">{{ plan.get_method_display }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ plan.total_payable|toman }}</td>
+                        <td class="px-4 py-3 font-medium text-red-600">{{ plan.remaining|toman }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'admin_panel:installment_plan_detail' plan.pk %}" class="text-xs text-indigo-600 hover:text-indigo-800">جزئیات ←</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">طرح اقساط بازی وجود ندارد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -36,6 +36,11 @@ urlpatterns = [
     path('invoices/<int:pk>/cancel/', views.AdminInvoiceCancelView.as_view(), name='invoice_cancel'),
     path('invoices/<int:pk>/delete/', views.AdminInvoiceDeleteView.as_view(), name='invoice_delete'),
     path('invoices/<int:pk>/pdf/', views.AdminInvoicePDFView.as_view(), name='invoice_pdf'),
+    # Installments
+    path('installments/', views.AdminInstallmentListView.as_view(), name='installment_list'),
+    path('installments/plan/<int:pk>/', views.AdminInstallmentPlanDetailView.as_view(), name='installment_plan_detail'),
+    path('installments/create/<int:pk>/', views.AdminInstallmentPlanCreateView.as_view(), name='installment_plan_create'),
+    path('installments/pay/<int:pk>/', views.AdminInstallmentPayView.as_view(), name='installment_pay'),
     # Cash flow
     path('cashflow/', views.AdminCashFlowView.as_view(), name='cashflow'),
     path('cashflow/create/', views.AdminCashTransactionCreateView.as_view(), name='cashflow_create'),

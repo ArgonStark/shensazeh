@@ -1061,6 +1061,97 @@ class AdminPartyImportView(PanelPermissionMixin, View):
         return redirect('admin_panel:party_list')
 
 
+# ─── Installments (فروش اقساطی) ──────────────────────────────
+
+class AdminInstallmentListView(PanelPermissionMixin, TemplateView):
+    """Overdue + upcoming installments and per-party outstanding."""
+    permission_required = 'installments.view_installment'
+    template_name = 'admin_panel/installments/installment_list.html'
+
+    def get_context_data(self, **kwargs):
+        import jdatetime
+        from installments.models import Installment, InstallmentPlan
+        ctx = super().get_context_data(**kwargs)
+        today = jdatetime.date.today()
+        open_installments = (Installment.objects
+                             .filter(paid_amount__lt=F('amount'))
+                             .select_related('plan__party', 'plan__invoice'))
+        ctx['overdue'] = open_installments.filter(due_date__lt=today).order_by('due_date')
+        ctx['upcoming'] = open_installments.filter(due_date__gte=today).order_by('due_date')[:30]
+        ctx['overdue_total'] = sum(i.remaining for i in ctx['overdue'])
+        plans = InstallmentPlan.objects.select_related('party', 'invoice').prefetch_related('installments')
+        outstanding = [p for p in plans if not p.is_settled]
+        ctx['open_plans'] = outstanding
+        ctx['outstanding_total'] = sum(p.remaining for p in outstanding)
+        ctx['today'] = today
+        return ctx
+
+
+class AdminInstallmentPlanCreateView(PanelPermissionMixin, View):
+    permission_required = 'installments.add_installmentplan'
+    template_name = 'admin_panel/installments/plan_form.html'
+
+    def get_invoice(self, pk):
+        return get_object_or_404(Invoice.objects.select_related('party'), pk=pk)
+
+    def get(self, request, pk):
+        from django.shortcuts import render
+        from installments.models import InstallmentPlan
+        invoice = self.get_invoice(pk)
+        return render(request, self.template_name, {
+            'invoice': invoice,
+            'method_choices': InstallmentPlan.METHOD_CHOICES,
+            'page_title': f'طرح اقساط برای {invoice.invoice_number}',
+        })
+
+    def post(self, request, pk):
+        from finance.text import parse_int, parse_jalali_date
+        from installments.services import InstallmentError, create_installment_plan
+        invoice = self.get_invoice(pk)
+        try:
+            plan = create_installment_plan(
+                invoice,
+                method=request.POST.get('method', 'none'),
+                annual_rate=parse_int(request.POST.get('annual_rate'), 0),
+                count=parse_int(request.POST.get('count'), 0),
+                start_date=parse_jalali_date(request.POST.get('start_date', '')),
+                user=request.user,
+            )
+        except InstallmentError as exc:
+            messages.error(request, str(exc))
+            return redirect('admin_panel:installment_plan_create', pk=invoice.pk)
+        messages.success(request, f'طرح {plan.count} قسطی ثبت شد.')
+        return redirect('admin_panel:installment_plan_detail', pk=plan.pk)
+
+
+class AdminInstallmentPlanDetailView(PanelPermissionMixin, DetailView):
+    permission_required = 'installments.view_installmentplan'
+    template_name = 'admin_panel/installments/plan_detail.html'
+    context_object_name = 'plan'
+
+    def get_queryset(self):
+        from installments.models import InstallmentPlan
+        return (InstallmentPlan.objects.select_related('party', 'invoice')
+                .prefetch_related('installments'))
+
+
+class AdminInstallmentPayView(PanelPermissionMixin, View):
+    permission_required = 'installments.change_installment'
+
+    def post(self, request, pk):
+        from finance.text import parse_int
+        from installments.models import Installment
+        from installments.services import InstallmentError, pay_installment
+        installment = get_object_or_404(Installment.objects.select_related('plan'), pk=pk)
+        try:
+            pay_installment(installment, parse_int(request.POST.get('amount'), 0),
+                            request.user, method=request.POST.get('method', 'cash'))
+            messages.success(request, 'پرداخت قسط ثبت شد.')
+        except (InstallmentError, LedgerError) as exc:
+            messages.error(request, str(exc))
+        return redirect('admin_panel:installment_plan_detail', pk=installment.plan_id)
+
+
 # ─── Cash flow (هزینه و درآمد) ───────────────────────────────
 
 class AdminCashFlowView(PanelPermissionMixin, ListView):

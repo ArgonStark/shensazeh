@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'finance',
     'parties',
     'cheques',
+    'installments',
 ]
 
 MIDDLEWARE = [

@@ -49,6 +49,10 @@ MODULES = {
         'label': 'هزینه‌ها و درآمدها',
         'models': ['finance.cashtransaction', 'finance.expensecategory'],
     },
+    'installments': {
+        'label': 'فروش اقساطی',
+        'models': ['installments.installmentplan', 'installments.installment'],
+    },
     'settings': {
         'label': 'تنظیمات سایت',
         'models': ['admin_panel.sitesetting'],
@@ -74,6 +78,7 @@ ROLE_DEFAULTS = {
         'parties': ACTIONS,
         'cheques': ACTIONS,
         'cashflow': ACTIONS,
+        'installments': ACTIONS,
         'inventory': ['view'],
         'products': ['view'],
         'users': ['view'],
@@ -83,6 +88,7 @@ ROLE_DEFAULTS = {
         'invoices': ['view', 'add', 'change'],
         'parties': ['view', 'add', 'change'],
         'cheques': ['view', 'add'],
+        'installments': ['view', 'add'],
         'products': ['view'],
         'inventory': ['view'],
         'users': ['view'],
