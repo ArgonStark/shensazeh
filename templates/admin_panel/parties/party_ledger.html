@@ -94,6 +94,39 @@
         </div>
     </div>
 
+    {# --- Open items --- #}
+    {% if open_invoices or open_installments %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">اسناد باز این طرف حساب</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
+            <div>
+                <p class="text-xs text-gray-400 mb-2">فاکتورهای تسویه‌نشده</p>
+                {% for invoice in open_invoices %}
+                <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                    <a href="{% url 'admin_panel:invoice_detail' invoice.pk %}" class="font-mono text-xs text-indigo-700" dir="ltr">{{ invoice.invoice_number }}</a>
+                    <span class="text-red-600 font-medium">{{ invoice.remaining_amount|toman }} تومان</span>
+                </div>
+                {% empty %}
+                <p class="text-xs text-gray-300">—</p>
+                {% endfor %}
+            </div>
+            <div>
+                <p class="text-xs text-gray-400 mb-2">اقساط باز</p>
+                {% for installment in open_installments %}
+                <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                    <span class="text-xs {% if installment.is_overdue %}text-red-600 font-bold{% else %}text-gray-600{% endif %}">
+                        {{ installment.due_date|date:'Y/m/d' }} — قسط {{ installment.seq }}
+                    </span>
+                    <span class="text-gray-800 font-medium">{{ installment.remaining|toman }} تومان</span>
+                </div>
+                {% empty %}
+                <p class="text-xs text-gray-300">—</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {# --- Payment modal --- #}
     {% if perms.parties.add_payment %}
     <div x-show="paymentModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
@@ -123,6 +156,13 @@
                     <label for="{{ payment_form.reference.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شماره پیگیری</label>
                     {{ payment_form.reference }}
                 </div>
+                <label class="flex items-start gap-2 bg-indigo-50/60 rounded-xl p-3 cursor-pointer">
+                    <input type="checkbox" name="auto_settle" class="w-5 h-5 mt-0.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                    <span class="text-xs text-gray-600">
+                        <strong class="text-gray-800 block text-sm">تسویه خودکار اسناد باز (فقط دریافت)</strong>
+                        اول اقساط معوق، بعد فاکتورهای باز، بعد اقساط آینده؛ باقیمانده بستانکاری می‌ماند.
+                    </span>
+                </label>
                 <div>
                     <label for="{{ payment_form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">شرح</label>
                     {{ payment_form.description }}

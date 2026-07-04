@@ -54,6 +54,93 @@ def record_payment(*, party, kind, method, amount, reference='', description='',
     return payment
 
 
+@transaction.atomic
+def apply_payment(party, amount, *, user=None, method='cash', reference='', description=''):
+    """Receive money and auto-settle the party's open debts.
+
+    Allocation priority (deliberate and fixed — tested in parties.tests):
+      1. overdue installments, oldest due date first
+      2. issued unpaid sale invoices WITHOUT an installment plan, oldest first
+      3. remaining (future) open installments, oldest due date first
+      4. whatever is left simply stays as the ledger credit from step 0
+
+    The party ledger gets exactly ONE credit (the received amount) via
+    record_payment; allocation only updates document paid/settled flags, so
+    the ledger stays balanced and every step is inside this transaction.
+
+    Returns (payment, allocations) where allocations is a list of
+    ('installment'|'invoice', obj, allocated_amount).
+    """
+    import jdatetime
+    from django.db.models import F
+    from django.utils import timezone
+
+    from installments.models import Installment
+
+    payment = record_payment(party=party, kind='receipt', method=method, amount=amount,
+                             reference=reference,
+                             description=description or f'دریافت با تسویه خودکار — {party.name}',
+                             user=user)
+    remaining = payment.amount
+    allocations = []
+    today = jdatetime.date.today()
+
+    def open_installments():
+        return (Installment.objects.select_for_update()
+                .filter(plan__party=party, paid_amount__lt=F('amount'))
+                .select_related('plan__invoice'))
+
+    def settle_installment(installment):
+        nonlocal remaining
+        alloc = min(remaining, installment.remaining)
+        if alloc <= 0:
+            return
+        installment.paid_amount += alloc
+        if installment.is_paid:
+            installment.paid_at = timezone.now()
+        installment.save(update_fields=['paid_amount', 'paid_at'])
+        remaining -= alloc
+        allocations.append(('installment', installment, alloc))
+        plan = installment.plan
+        if plan.is_settled and not plan.invoice.is_paid:
+            plan.invoice.is_paid = True
+            plan.invoice.save(update_fields=['is_paid'])
+
+    # 1) overdue installments
+    for installment in open_installments().filter(due_date__lt=today).order_by('due_date', 'seq'):
+        if remaining <= 0:
+            break
+        settle_installment(installment)
+
+    # 2) unpaid issued sale invoices without a plan, oldest first
+    if remaining > 0:
+        invoices = (party.invoices.select_for_update()
+                    .filter(doc_type='sale', status='issued', is_paid=False,
+                            installment_plan__isnull=True)
+                    .order_by('created_at', 'id'))
+        for invoice in invoices:
+            if remaining <= 0:
+                break
+            alloc = min(remaining, invoice.remaining_amount)
+            if alloc <= 0:
+                continue
+            invoice.paid_amount += alloc
+            invoice.is_paid = invoice.paid_amount >= invoice.total
+            invoice.save(update_fields=['paid_amount', 'is_paid'])
+            remaining -= alloc
+            allocations.append(('invoice', invoice, alloc))
+
+    # 3) future open installments
+    if remaining > 0:
+        for installment in open_installments().filter(due_date__gte=today).order_by('due_date', 'seq'):
+            if remaining <= 0:
+                break
+            settle_installment(installment)
+
+    # 4) `remaining` needs no action — the credit already sits on the ledger.
+    return payment, allocations
+
+
 def ledger_rows_with_balance(party):
     """Party's ledger oldest-first, each row annotated with the running balance."""
     rows = []

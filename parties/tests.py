@@ -67,6 +67,102 @@ class RecordPaymentTests(TestCase):
             record_payment(party=self.party, kind='steal', method='cash', amount=10)
 
 
+class AutoSettlementTests(TestCase):
+    """apply_payment priority: overdue installments → open invoices → future
+    installments → remainder stays as credit."""
+
+    def setUp(self):
+        import jdatetime
+
+        from orders.models import Invoice, InvoiceItem
+        from orders.services import issue_invoice
+        from store.models import Category, Product
+        self.user = User.objects.create_user(username='as', mobile='09120007000', password='x', is_staff=True)
+        self.party = Party.objects.create(name='بدهکار بزرگ')
+        category = Category.objects.create(name='مصالح', slug='m1')
+        self.product = Product.objects.create(name='بلوک', slug='block', category=category,
+                                              price=1_000_000, stock=1000)
+        self.jdate = jdatetime
+
+        def make_issued_invoice(qty):
+            invoice = Invoice.objects.create(doc_type='sale', party=self.party,
+                                             customer_name=self.party.name, settlement_type='credit')
+            InvoiceItem.objects.create(invoice=invoice, product=self.product,
+                                       quantity=qty, unit_price=1_000_000)
+            return issue_invoice(invoice, self.user)
+
+        self.make_issued_invoice = make_issued_invoice
+
+    def _make_plan(self, invoice, count, start):
+        from installments.services import create_installment_plan
+        return create_installment_plan(invoice, method='none', annual_rate=0,
+                                       count=count, start_date=start, user=self.user)
+
+    def test_priority_and_partial_allocation(self):
+        from parties.services import apply_payment
+        today = self.jdate.date.today()
+
+        # Plan with a 2,000,000 installment made overdue by hand
+        plan_invoice = self.make_issued_invoice(4)   # 4,000,000
+        plan = self._make_plan(plan_invoice, 2, today + self.jdate.timedelta(days=3))
+        first = plan.installments.first()
+        type(first).objects.filter(pk=first.pk).update(due_date=today - self.jdate.timedelta(days=10))
+
+        # Plain open invoice 3,000,000
+        open_invoice = self.make_issued_invoice(3)
+
+        # Pay 4,500,000: 2,000,000 → overdue installment, 2,500,000 → invoice (partial)
+        _, allocations = apply_payment(self.party, 4_500_000, user=self.user)
+        self.assertEqual([(kind, alloc) for kind, _, alloc in allocations],
+                         [('installment', 2_000_000), ('invoice', 2_500_000)])
+        first.refresh_from_db()
+        self.assertTrue(first.is_paid)
+        open_invoice.refresh_from_db()
+        self.assertFalse(open_invoice.is_paid)
+        self.assertEqual(open_invoice.remaining_amount, 500_000)
+
+    def test_remainder_becomes_credit(self):
+        from parties.services import apply_payment
+        invoice = self.make_issued_invoice(1)  # 1,000,000 debt
+        _, allocations = apply_payment(self.party, 1_500_000, user=self.user)
+        self.assertEqual(sum(a for _, _, a in allocations), 1_000_000)
+        invoice.refresh_from_db()
+        self.assertTrue(invoice.is_paid)
+        # ledger: debit 1M, credit 1.5M → party is 500k in credit
+        self.assertEqual(self.party.balance, -500_000)
+
+    def test_future_installments_after_invoices(self):
+        from parties.services import apply_payment
+        today = self.jdate.date.today()
+        plan_invoice = self.make_issued_invoice(2)   # plan: 2 × 1,000,000, future
+        plan = self._make_plan(plan_invoice, 2, today + self.jdate.timedelta(days=5))
+        open_invoice = self.make_issued_invoice(1)   # 1,000,000
+
+        _, allocations = apply_payment(self.party, 2_000_000, user=self.user)
+        kinds = [kind for kind, _, _ in allocations]
+        self.assertEqual(kinds, ['invoice', 'installment'])  # invoice before future installments
+        open_invoice.refresh_from_db()
+        self.assertTrue(open_invoice.is_paid)
+        self.assertEqual(plan.installments.first().plan.paid_total, 1_000_000)
+
+    def test_single_ledger_credit_for_whole_amount(self):
+        from parties.services import apply_payment
+        self.make_issued_invoice(2)
+        apply_payment(self.party, 5_000_000, user=self.user)
+        credits = LedgerEntry.objects.filter(party=self.party, entry_type=LedgerEntry.CREDIT)
+        self.assertEqual(credits.count(), 1)
+        self.assertEqual(credits.get().amount, 5_000_000)
+
+    def test_plan_fully_settled_marks_invoice_paid(self):
+        from parties.services import apply_payment
+        today = self.jdate.date.today()
+        plan_invoice = self.make_issued_invoice(2)
+        self._make_plan(plan_invoice, 2, today + self.jdate.timedelta(days=5))
+        apply_payment(self.party, 2_000_000, user=self.user)
+        plan_invoice.refresh_from_db()
+        self.assertTrue(plan_invoice.is_paid)
+
+
 class PartyPanelViewTests(TestCase):
     def setUp(self):
         self.accountant = User.objects.create_user(username='acc2', mobile='09120001001', password='x', is_staff=True)

@@ -889,6 +889,9 @@ class AdminPartyLedgerView(PanelPermissionMixin, DetailView):
     context_object_name = 'party'
 
     def get_context_data(self, **kwargs):
+        from django.db.models import F as _F
+
+        from installments.models import Installment
         ctx = super().get_context_data(**kwargs)
         rows = ledger_rows_with_balance(self.object)
         ctx['rows'] = rows
@@ -896,6 +899,15 @@ class AdminPartyLedgerView(PanelPermissionMixin, DetailView):
         ctx['total_debit'] = sum(r['entry'].amount for r in rows if r['entry'].entry_type == LedgerEntry.DEBIT)
         ctx['total_credit'] = sum(r['entry'].amount for r in rows if r['entry'].entry_type == LedgerEntry.CREDIT)
         ctx['payment_form'] = PaymentForm()
+        # Open items the auto-settlement would target (same priority order)
+        ctx['open_invoices'] = (self.object.invoices
+                                .filter(doc_type='sale', status='issued', is_paid=False,
+                                        installment_plan__isnull=True)
+                                .order_by('created_at'))
+        ctx['open_installments'] = (Installment.objects
+                                    .filter(plan__party=self.object, paid_amount__lt=_F('amount'))
+                                    .select_related('plan__invoice')
+                                    .order_by('due_date', 'seq'))
         return ctx
 
 
@@ -903,20 +915,37 @@ class AdminPaymentCreateView(PanelPermissionMixin, View):
     permission_required = 'parties.add_payment'
 
     def post(self, request, pk):
+        from parties.services import apply_payment
         party = get_object_or_404(Party, pk=pk)
         form = PaymentForm(request.POST)
         if form.is_valid():
+            auto_settle = (request.POST.get('auto_settle') == 'on'
+                           and form.cleaned_data['kind'] == 'receipt')
             try:
-                record_payment(
-                    party=party,
-                    kind=form.cleaned_data['kind'],
-                    method=form.cleaned_data['method'],
-                    amount=form.cleaned_data['amount'],
-                    reference=form.cleaned_data['reference'],
-                    description=form.cleaned_data['description'],
-                    user=request.user,
-                )
-                messages.success(request, 'تراکنش با موفقیت ثبت شد.')
+                if auto_settle:
+                    _, allocations = apply_payment(
+                        party, form.cleaned_data['amount'],
+                        user=request.user,
+                        method=form.cleaned_data['method'],
+                        reference=form.cleaned_data['reference'],
+                        description=form.cleaned_data['description'],
+                    )
+                    settled = sum(alloc for _, _, alloc in allocations)
+                    messages.success(
+                        request,
+                        f'دریافت ثبت شد؛ {len(allocations)} سند به مبلغ {settled:,} ریال تسویه شد.'
+                        if allocations else 'دریافت ثبت شد؛ سند بازی برای تسویه نبود (به‌عنوان بستانکاری ماند).')
+                else:
+                    record_payment(
+                        party=party,
+                        kind=form.cleaned_data['kind'],
+                        method=form.cleaned_data['method'],
+                        amount=form.cleaned_data['amount'],
+                        reference=form.cleaned_data['reference'],
+                        description=form.cleaned_data['description'],
+                        user=request.user,
+                    )
+                    messages.success(request, 'تراکنش با موفقیت ثبت شد.')
             except LedgerError as exc:
                 messages.error(request, str(exc))
         else:
