@@ -1,0 +1,24 @@
+[Unit]
+Description=Shensazeh gunicorn daemon
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+# systemd creates/owns /run/shensazeh (as www-data), so the socket bind
+# doesn't hit "Permission denied" trying to write directly into /run.
+RuntimeDirectory=shensazeh
+WorkingDirectory=/var/www/shensazeh
+EnvironmentFile=/var/www/shensazeh/.env
+ExecStart=/var/www/shensazeh/venv/bin/gunicorn \
+    --workers 3 \
+    --timeout 60 \
+    --bind unix:/run/shensazeh/shensazeh.sock \
+    --access-logfile /var/log/shensazeh/access.log \
+    --error-logfile /var/log/shensazeh/error.log \
+    config.wsgi:application
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

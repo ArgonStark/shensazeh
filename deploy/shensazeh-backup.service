@@ -1,0 +1,8 @@
+[Unit]
+Description=Shensazeh database backup
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/var/www/shensazeh
+ExecStart=/var/www/shensazeh/venv/bin/python manage.py backup_db --dir /var/backups/shensazeh --keep 30

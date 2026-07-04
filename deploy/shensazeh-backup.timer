@@ -1,5 +1,5 @@
 [Unit]
-Description=Nightly Sazandeh database backup
+Description=Nightly Shensazeh database backup
 
 [Timer]
 OnCalendar=*-*-* 03:30:00
