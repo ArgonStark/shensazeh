@@ -90,10 +90,60 @@
         </div>
     </div>
 
+    {# --- Finance Row --- #}
+    {% if perms.parties.view_ledgerentry or perms.cheques.view_cheque %}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {% if perms.parties.view_ledgerentry %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-sm font-semibold text-gray-800 mb-3">طلب و بدهی</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">طلب ما (بدهکاران):</span>
+                    <span class="font-bold text-red-600">{{ total_receivable|toman }} تومان</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">بدهی ما (بستانکاران):</span>
+                    <span class="font-bold text-green-600">{{ total_payable|toman }} تومان</span>
+                </div>
+                <a href="{% url 'admin_panel:party_balance_report' %}" class="inline-block text-xs text-indigo-600 hover:text-indigo-800 pt-1">گزارش کامل ←</a>
+            </div>
+        </div>
+        {% endif %}
+        {% if perms.orders.view_invoice %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-sm font-semibold text-gray-800 mb-3">فاکتورهای تسویه‌نشده</h3>
+            <p class="text-2xl font-bold text-gray-800">{{ unpaid_sales_count }}</p>
+            <p class="text-sm text-gray-500 mt-1">جمع مانده: <span class="text-red-600 font-medium">{{ unpaid_sales_total|toman }} تومان</span></p>
+            <a href="{% url 'admin_panel:invoice_list' %}?status=issued&paid=no" class="inline-block text-xs text-indigo-600 hover:text-indigo-800 pt-2">مشاهده ←</a>
+        </div>
+        {% endif %}
+        {% if perms.cheques.view_cheque %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-800">چک‌های نزدیک سررسید (۷ روز)</h3>
+                {% if overdue_cheques_count %}
+                <span class="inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700">{{ overdue_cheques_count }} معوق!</span>
+                {% endif %}
+            </div>
+            {% for cheque in cheques_due_soon %}
+            <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0 text-xs">
+                <span class="text-gray-600">{{ cheque.due_date|date:'m/d' }}</span>
+                <span class="text-gray-800 truncate mx-2">{{ cheque.party.name }}</span>
+                <span class="font-medium {% if cheque.direction == 'received' %}text-green-600{% else %}text-amber-600{% endif %}">{{ cheque.amount|toman }} ت</span>
+            </div>
+            {% empty %}
+            <p class="text-xs text-gray-400">چکی در ۷ روز آینده سررسید نمی‌شود</p>
+            {% endfor %}
+            <a href="{% url 'admin_panel:cheque_due_report' %}" class="inline-block text-xs text-indigo-600 hover:text-indigo-800 pt-2">گزارش سررسید ←</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {# --- Charts Row --- #}
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
         <div class="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">فروش ۳۰ روز اخیر</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">فروش ۳۰ روز اخیر (تومان — فاکتورهای صادرشده)</h3>
             <canvas id="salesChart" height="120"></canvas>
         </div>
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -127,10 +177,14 @@
                             <td class="px-4 py-3 text-gray-700">{{ invoice.customer_name }}</td>
                             <td class="px-4 py-3 text-gray-700">{{ invoice.total|toman }} تومان</td>
                             <td class="px-4 py-3">
-                                {% if invoice.is_paid %}
-                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">پرداخت شده</span>
+                                {% if invoice.status == 'draft' %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">پیش‌نویس</span>
+                                {% elif invoice.status == 'cancelled' %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">باطل</span>
+                                {% elif invoice.is_paid %}
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">تسویه</span>
                                 {% else %}
-                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">در انتظار</span>
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">مانده‌دار</span>
                                 {% endif %}
                             </td>
                         </tr>

@@ -1,0 +1,8 @@
+[Unit]
+Description=Sazandeh database backup
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/var/www/sazandeh
+ExecStart=/var/www/sazandeh/venv/bin/python manage.py backup_db --dir /var/backups/sazandeh --keep 30

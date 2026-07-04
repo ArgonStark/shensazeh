@@ -74,17 +74,44 @@ class AdminDashboardView(StaffRequiredMixin, TemplateView):
     template_name = 'admin_panel/dashboard.html'
 
     def get_context_data(self, **kwargs):
+        import datetime
+
+        import jdatetime
         ctx = super().get_context_data(**kwargs)
-        ctx['total_sales'] = Order.objects.exclude(status='cancelled').aggregate(t=Sum('total_amount'))['t'] or 0
+        issued_sales = Invoice.objects.filter(doc_type='sale', status='issued')
+        ctx['total_sales'] = issued_sales.aggregate(t=Sum('total'))['t'] or 0
         ctx['order_count'] = Order.objects.exclude(status='cancelled').count()
         ctx['total_products'] = Product.objects.filter(is_active=True).count()
         ctx['user_count'] = User.objects.count()
         ctx['out_of_stock'] = Product.objects.filter(is_active=True, stock=0).count()
         ctx['low_stock_products'] = Product.objects.filter(
             is_active=True, stock__gt=0, stock__lte=F('reorder_point')).order_by('stock')[:10]
-        ctx['recent_invoices'] = Invoice.objects.select_related('order__customer').order_by('-created_at')[:5]
+        ctx['recent_invoices'] = Invoice.objects.select_related('party').order_by('-created_at')[:5]
         ctx['invoice_count'] = Invoice.objects.count()
+        ctx['unpaid_sales_count'] = issued_sales.filter(is_paid=False).count()
+        ctx['unpaid_sales_total'] = sum(inv.remaining_amount for inv in issued_sales.filter(is_paid=False))
         ctx['announcements'] = Announcement.objects.filter(is_active=True)[:5]
+
+        # Receivable / payable across all party ledgers
+        balances = (LedgerEntry.objects.values('party')
+                    .annotate(debit=Sum('amount', filter=Q(entry_type=LedgerEntry.DEBIT), default=0),
+                              credit=Sum('amount', filter=Q(entry_type=LedgerEntry.CREDIT), default=0)))
+        receivable = payable = 0
+        for row in balances:
+            net = row['debit'] - row['credit']
+            if net > 0:
+                receivable += net
+            else:
+                payable -= net
+        ctx['total_receivable'] = receivable
+        ctx['total_payable'] = payable
+
+        # Cheques nearing due (7 days) + overdue
+        today = jdatetime.date.today()
+        pending_cheques = Cheque.objects.filter(status='pending').select_related('party')
+        ctx['cheques_due_soon'] = pending_cheques.filter(
+            due_date__gte=today, due_date__lte=today + datetime.timedelta(days=7))[:8]
+        ctx['overdue_cheques_count'] = pending_cheques.filter(due_date__lt=today).count()
 
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -98,18 +125,18 @@ class AdminDashboardView(StaffRequiredMixin, TemplateView):
             .order_by('-product_count')[:8]
         )
 
-        # Chart data
+        # Sales chart: last 30 days of issued sale documents (Toman)
         from datetime import timedelta
         sales_labels, sales_values = [], []
         for i in range(29, -1, -1):
             day = now - timedelta(days=i)
             day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
             day_end = day_start + timedelta(days=1)
-            total = Order.objects.filter(created_at__gte=day_start, created_at__lt=day_end).exclude(status='cancelled').aggregate(t=Sum('total_amount'))['t'] or 0
-            import jdatetime
+            total = (issued_sales.filter(issued_at__gte=day_start, issued_at__lt=day_end)
+                     .aggregate(t=Sum('total'))['t'] or 0)
             jd = jdatetime.datetime.fromgregorian(datetime=day)
             sales_labels.append(f'{jd.month}/{jd.day}')
-            sales_values.append(int(total))
+            sales_values.append(int(total) // 10)
         ctx['sales_labels'] = json.dumps(sales_labels)
         ctx['sales_values'] = json.dumps(sales_values)
 
@@ -794,7 +821,8 @@ class AdminPartyListView(PanelPermissionMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Party.objects.prefetch_related('tags').annotate(balance_amount=_party_balance_annotation())
+        qs = (Party.objects.prefetch_related('tags')
+              .annotate(balance_amount=_party_balance_annotation()).order_by('name'))
         q = self.request.GET.get('q', '').strip()
         party_type = self.request.GET.get('type', '').strip()
         tag = self.request.GET.get('tag', '').strip()
@@ -947,6 +975,26 @@ class AdminPartyLedgerPDFView(PanelPermissionMixin, View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="ledger-{party.pk}.pdf"'
         return response
+
+
+class AdminPartyLedgerExportView(PanelPermissionMixin, View):
+    permission_required = 'parties.view_ledgerentry'
+
+    def get(self, request, pk):
+        from finance.excel import workbook_response
+        party = get_object_or_404(Party, pk=pk)
+        rows = []
+        for row in ledger_rows_with_balance(party):
+            entry = row['entry']
+            rows.append([
+                entry.created_at.strftime('%Y/%m/%d %H:%M'),
+                entry.description,
+                entry.amount if entry.entry_type == LedgerEntry.DEBIT else '',
+                entry.amount if entry.entry_type == LedgerEntry.CREDIT else '',
+                row['balance'],
+            ])
+        headers = ['تاریخ', 'شرح', 'بدهکار (ریال)', 'بستانکار (ریال)', 'مانده (ریال)']
+        return workbook_response(f'ledger-{party.pk}', f'دفتر {party.name}'[:31], headers, rows)
 
 
 class AdminPartyExportView(PanelPermissionMixin, View):

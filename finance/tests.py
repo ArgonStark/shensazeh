@@ -58,6 +58,21 @@ class FilterTests(TestCase):
         self.assertEqual(finance_tags.fa_digits(45), '۴۵')
 
 
+class BackupCommandTests(TestCase):
+    def test_backup_and_rotation(self):
+        import tempfile
+        from pathlib import Path
+
+        from django.core.management import call_command
+        with tempfile.TemporaryDirectory() as tmp:
+            call_command('backup_db', '--dir', tmp, '--keep', '2')
+            call_command('backup_db', '--dir', tmp, '--keep', '2')
+            call_command('backup_db', '--dir', tmp, '--keep', '2')
+            backups = list(Path(tmp).glob('db-*'))
+            self.assertEqual(len(backups), 2)  # rotated down to --keep
+            self.assertTrue(all(b.stat().st_size > 0 for b in backups))
+
+
 class AuditTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='u1', mobile='09120000001', password='x')

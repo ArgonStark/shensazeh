@@ -57,6 +57,7 @@ urlpatterns = [
     path('parties/<int:pk>/edit/', views.AdminPartyEditView.as_view(), name='party_edit'),
     path('parties/<int:pk>/ledger/', views.AdminPartyLedgerView.as_view(), name='party_ledger'),
     path('parties/<int:pk>/ledger/pdf/', views.AdminPartyLedgerPDFView.as_view(), name='party_ledger_pdf'),
+    path('parties/<int:pk>/ledger/excel/', views.AdminPartyLedgerExportView.as_view(), name='party_ledger_excel'),
     path('parties/<int:pk>/payment/', views.AdminPaymentCreateView.as_view(), name='party_payment'),
     # Blog
     path('posts/', views.AdminPostListView.as_view(), name='post_list'),

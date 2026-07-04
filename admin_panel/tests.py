@@ -142,6 +142,16 @@ class StaffManagementTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action='status', object_id=sp.pk).exists())
 
 
+class DashboardTests(TestCase):
+    def test_dashboard_renders_finance_widgets(self):
+        boss = User.objects.create_superuser(username='dash', mobile='09120000060', password='x')
+        self.client.force_login(boss)
+        response = self.client.get(reverse('admin_panel:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'طلب و بدهی')
+        self.assertContains(response, 'چک‌های نزدیک سررسید')
+
+
 class InvoiceAuditTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user(username='a1', mobile='09120000040', password='x', is_staff=True)

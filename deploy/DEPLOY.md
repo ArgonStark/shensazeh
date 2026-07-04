@@ -99,6 +99,21 @@ Then in `.env` set `SITE_URL=https://shensazeh.ir` and `SECURE_SSL=True`, and `s
 
 ---
 
+## Nightly database backup
+```bash
+mkdir -p /var/backups/sazandeh && chown www-data:www-data /var/backups/sazandeh
+cp /var/www/sazandeh/deploy/sazandeh-backup.service /etc/systemd/system/
+cp /var/www/sazandeh/deploy/sazandeh-backup.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now sazandeh-backup.timer
+systemctl list-timers | grep sazandeh    # verify it's scheduled
+```
+Backups rotate automatically (newest 30 kept). Copy `/var/backups/sazandeh/`
+offsite (rclone to S3-compatible storage, or a nightly rsync to another host) —
+a backup on the same disk is not a real backup.
+
+---
+
 ## Updating after a code change
 ```bash
 cd /var/www/sazandeh && git pull          # or rsync again
