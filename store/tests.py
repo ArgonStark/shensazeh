@@ -1,8 +1,34 @@
+from django.contrib.auth.models import Permission
 from django.test import TestCase
+from django.urls import reverse
 
+from accounts.models import User
 from admin_panel.forms import (BlogPostForm, CategoryForm, ProductForm,
                                ProjectForm, ServiceForm)
 from store.models import Category, Product
+
+
+class ProductPanelRenderTests(TestCase):
+    """The create/edit pages must render — regression for the unguarded
+    form.instance.images.all() on an unsaved product (Django 6 ValueError)."""
+
+    def setUp(self):
+        self.cat = Category.objects.create(name='ابزار', slug='tools-r')
+        self.staff = User.objects.create_user(username='r', mobile='09990010001', password='x', is_staff=True)
+        for cn in ['add_product', 'change_product', 'view_product']:
+            self.staff.user_permissions.add(
+                Permission.objects.get(content_type__app_label='store', codename=cn))
+        self.client.force_login(self.staff)
+
+    def test_create_page_renders(self):
+        response = self.client.get(reverse('admin_panel:product_create'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'افزودن محصول')
+
+    def test_edit_page_renders(self):
+        product = Product.objects.create(name='چکش', slug='hammer-r', category=self.cat, price=100000)
+        response = self.client.get(reverse('admin_panel:product_edit', args=[product.pk]))
+        self.assertEqual(response.status_code, 200)
 
 
 class ProductFormTests(TestCase):
