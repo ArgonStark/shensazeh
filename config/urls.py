@@ -1,9 +1,12 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, register_converter
 
 from store.views import HomeView, ProductSearchAPIView
+from .converters import UnicodeSlugConverter
+
+register_converter(UnicodeSlugConverter, 'uslug')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,7 +30,6 @@ urlpatterns = [
     path('api/auth/', include('rest_framework.urls')),
 ]
 
-import os
-# Serve media in DEBUG, or on Vercel (read-only demo) where there's no nginx.
-if settings.DEBUG or os.environ.get('VERCEL'):
+# Serve media in DEBUG; in production nginx serves /media/.
+if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

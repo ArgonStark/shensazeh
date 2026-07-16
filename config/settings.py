@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from decouple import config, Csv
 
@@ -7,13 +6,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=Csv())
-
-# On Vercel, always trust the deployment domain (avoids DisallowedHost / 400).
-if os.environ.get('VERCEL'):
-    ALLOWED_HOSTS += ['.vercel.app']
-    _vercel_url = os.environ.get('VERCEL_URL')
-    if _vercel_url:
-        ALLOWED_HOSTS.append(_vercel_url)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -99,16 +91,6 @@ else:
         }
     }
 
-# Vercel has a read-only filesystem except /tmp. Copy the bundled SQLite DB to
-# /tmp at cold start so reads (and transient writes) work for the demo.
-if os.environ.get('VERCEL') and _db_engine == 'django.db.backends.sqlite3':
-    import shutil
-    _src_db = BASE_DIR / config('DB_NAME', default='db.sqlite3')
-    _tmp_db = '/tmp/db.sqlite3'
-    if not os.path.exists(_tmp_db) and os.path.exists(_src_db):
-        shutil.copy(_src_db, _tmp_db)
-    DATABASES['default']['NAME'] = _tmp_db
-
 AUTH_USER_MODEL = 'accounts.User'
 
 # Email+password login first; mobile/OTP (SMS) auth will be added later.
@@ -175,14 +157,28 @@ ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
 # Site
 SITE_URL = config('SITE_URL', default='http://localhost:8000')
 
-# HTTPS hardening — enable by setting SECURE_SSL=True in .env once a cert is installed.
-# Left off by default so an HTTP-only demo still works.
-SECURE_SSL = config('SECURE_SSL', default=False, cast=bool)
-if SECURE_SSL:
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = True
+# --- HTTPS behind the ParsPack CDN (SSL terminates at the edge) --------------
+# Users reach the site over HTTPS; the CDN forwards the original scheme in
+# X-Forwarded-Proto. Django must trust that header, otherwise it treats every
+# request as HTTP — request.is_secure() is wrong and CSRF Origin checks reject
+# POSTs made over HTTPS. Safe only because traffic reaches the origin through
+# the CDN/nginx (which sets this header); a directly reachable origin could
+# spoof it.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# The browser<->CDN leg is always HTTPS, so mark cookies Secure in production.
+# Gated on DEBUG so HTTP-only local development can still log in.
+if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# Origin-level HTTPS enforcement (redirect + HSTS). Keep OFF until certbot is
+# installed on the origin: with SSL terminating at the CDN the origin still
+# speaks plain HTTP, so SECURE_SSL_REDIRECT would cause a redirect loop.
+# Flip SECURE_SSL=True in the environment once the origin has its own cert.
+SECURE_SSL = config('SECURE_SSL', default=False, cast=bool)
+if SECURE_SSL:
+    SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
