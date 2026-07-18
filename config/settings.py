@@ -182,3 +182,19 @@ if SECURE_SSL:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+# --- Logging ------------------------------------------------------------------
+# Send Django logs to stdout so they land in journald (`journalctl -u shensazeh`)
+# under gunicorn/systemd. Without this, production (DEBUG=False) only routes
+# request errors to the mail-admins handler, so nothing shows on the server.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'INFO'},
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+    },
+}
