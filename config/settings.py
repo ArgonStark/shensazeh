@@ -198,3 +198,7 @@ LOGGING = {
         'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
     },
 }
+
+# CSRF: Django 4+ checks the Origin header against this list on HTTPS POSTs.
+# Without it, login and any form submitted over HTTPS returns 403.
+CSRF_TRUSTED_ORIGINS = ['https://shensazeh.ir', 'https://www.shensazeh.ir']
