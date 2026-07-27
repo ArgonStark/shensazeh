@@ -182,3 +182,7 @@ if SECURE_SSL:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+# CSRF: Django 4+ checks the Origin header against this list on HTTPS POSTs.
+# Without it, login and any form submitted over HTTPS returns 403.
+CSRF_TRUSTED_ORIGINS = ['https://shensazeh.ir', 'https://www.shensazeh.ir']
