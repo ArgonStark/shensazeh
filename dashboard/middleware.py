@@ -1,3 +1,5 @@
+import ipaddress
+
 from .models import SiteVisit
 
 
@@ -25,12 +27,16 @@ class VisitTrackingMiddleware:
         if response.status_code == 200:
             try:
                 ip = self._get_client_ip(request)
-                SiteVisit.objects.create(
-                    ip_address=ip,
-                    path=path,
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
-                    user=request.user if request.user.is_authenticated else None,
-                )
+                # Loopback means the box talking to itself — local `runserver`
+                # browsing and server-side curl health checks — never a real
+                # visitor, so it must not land in the traffic stats.
+                if not self._is_loopback(ip):
+                    SiteVisit.objects.create(
+                        ip_address=ip,
+                        path=path,
+                        user_agent=request.META.get('HTTP_USER_AGENT', '')[:500],
+                        user=request.user if request.user.is_authenticated else None,
+                    )
             except Exception:
                 pass
 
@@ -42,3 +48,12 @@ class VisitTrackingMiddleware:
         if x_forwarded_for:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    @staticmethod
+    def _is_loopback(ip):
+        """True for 127.0.0.0/8 and ::1. Unparseable addresses are kept —
+        dropping them would silently lose real traffic."""
+        try:
+            return ipaddress.ip_address(ip).is_loopback
+        except ValueError:
+            return False
