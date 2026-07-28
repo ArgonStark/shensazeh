@@ -71,6 +71,11 @@ MODULES = {
         'models': ['finance.auditlog'],
         'actions': ['view'],
     },
+    'visits': {
+        'label': 'بازدیدهای سایت',
+        'models': ['dashboard.sitevisit'],
+        'actions': ['view'],
+    },
 }
 
 # Default grants applied when a staff member is created or their role changes.
@@ -108,6 +113,7 @@ ROLE_DEFAULTS = {
         'blog': ACTIONS,
         'services': ACTIONS,
         'products': ['view'],
+        'visits': ['view'],
     },
 }
 

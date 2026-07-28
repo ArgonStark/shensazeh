@@ -1,0 +1,203 @@
+{% extends 'admin_panel/base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}بازدیدها{% endblock %}
+
+{% block page_header %}
+<div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <h1 class="text-2xl font-bold text-gray-800">بازدیدها</h1>
+    <p class="text-sm text-gray-500 mt-1">آمار ترافیک سایت و سابقه کامل بازدیدها</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="visitsChart()" x-init="init()">
+
+    {# --- Filters (narrow both the stats and the log) --- #}
+    <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <input type="text" name="q" value="{{ f_q }}" placeholder="جستجو در مسیر یا IP..."
+               class="lg:col-span-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition">
+        <select name="segment" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            {% for value, label in segment_choices %}
+            <option value="{{ value }}" {% if f_segment == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="who" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            {% for value, label in who_choices %}
+            <option value="{{ value }}" {% if f_who == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="from" value="{{ f_from }}" placeholder="از تاریخ 1404/01/01" dir="ltr"
+               class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+        <div class="flex gap-2">
+            <input type="text" name="to" value="{{ f_to }}" placeholder="تا تاریخ" dir="ltr"
+                   class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-medium">فیلتر</button>
+        </div>
+    </form>
+
+    {# --- Headline stats --- #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-indigo-500">
+            <p class="text-sm text-gray-500">بازدید امروز</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ visits_today|intcomma }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ unique_today|intcomma }} بازدیدکننده یکتا</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-blue-500">
+            <p class="text-sm text-gray-500">۷ روز اخیر</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ visits_week|intcomma }}</p>
+            <p class="text-xs text-gray-400 mt-1">مجموع بازدیدها</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-green-500">
+            <p class="text-sm text-gray-500">۳۰ روز اخیر</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ visits_month|intcomma }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ unique_month|intcomma }} بازدیدکننده یکتا</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition border-r-4 border-r-purple-500">
+            <p class="text-sm text-gray-500">کل بازدیدها</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ visits_total|intcomma }}</p>
+            <p class="text-xs text-gray-400 mt-1">از ابتدای ثبت آمار</p>
+        </div>
+    </div>
+
+    {# --- 30-day chart --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">روند بازدید ۳۰ روز اخیر</h3>
+        <div class="h-64"><canvas id="visitsChart"></canvas></div>
+    </div>
+
+    {# --- Top pages / top visitors --- #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">پربازدیدترین صفحات</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                {% for page in top_pages %}
+                <div>
+                    <div class="flex items-center justify-between gap-3 text-sm mb-1">
+                        <a href="{{ page.path }}" target="_blank" rel="noopener"
+                           class="text-gray-700 hover:text-indigo-600 truncate font-mono text-xs" dir="ltr">{{ page.path }}</a>
+                        <span class="text-gray-800 font-medium whitespace-nowrap">{{ page.hits|intcomma }}</span>
+                    </div>
+                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500 rounded-full" style="width: {{ page.percent }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="py-8 text-center text-gray-400 text-sm">بازدیدی ثبت نشده است</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800">پرتکرارترین بازدیدکنندگان</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                {% for visitor in top_visitors %}
+                <div>
+                    <div class="flex items-center justify-between gap-3 text-sm mb-1">
+                        <span class="text-gray-700 font-mono text-xs" dir="ltr">{{ visitor.ip_address }}</span>
+                        <span class="text-gray-800 font-medium whitespace-nowrap">{{ visitor.hits|intcomma }}</span>
+                    </div>
+                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 rounded-full" style="width: {{ visitor.percent }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="py-8 text-center text-gray-400 text-sm">بازدیدی ثبت نشده است</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# --- Raw visit log --- #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">لیست بازدیدها</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">تاریخ</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">IP</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مسیر</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">کاربر</th>
+                        <th class="px-4 py-3 text-right text-gray-600 font-medium">مرورگر</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for visit in visits %}
+                    <tr class="hover:bg-gray-50 transition" x-data="{ open: false }">
+                        <td class="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">{{ visit.visited_at|date:'Y/m/d H:i' }}</td>
+                        <td class="px-4 py-3 text-gray-700 font-mono text-xs" dir="ltr">{{ visit.ip_address }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{{ visit.path }}" target="_blank" rel="noopener"
+                               class="text-gray-700 hover:text-indigo-600 font-mono text-xs" dir="ltr">{{ visit.path|truncatechars:60 }}</a>
+                        </td>
+                        <td class="px-4 py-3 text-gray-800">
+                            {% if visit.user %}{{ visit.user.get_full_name|default:visit.user }}
+                            {% else %}<span class="text-gray-400">مهمان</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if visit.user_agent %}
+                            <button @click="open = !open" class="text-xs text-indigo-600 hover:text-indigo-800">جزئیات</button>
+                            <div x-show="open" x-cloak class="mt-2 p-3 bg-gray-50 rounded-lg text-xs font-mono text-gray-600 max-w-md overflow-x-auto" dir="ltr">{{ visit.user_agent }}</div>
+                            {% else %}
+                            <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-gray-400">بازدیدی با این فیلترها یافت نشد</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'admin_panel/components/pagination.html' %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function visitsChart() {
+    return {
+        init() {
+            const el = document.getElementById('visitsChart');
+            if (!el) return;
+            new Chart(el, {
+                type: 'line',
+                data: {
+                    labels: {{ chart_labels|safe|default:"[]" }},
+                    datasets: [{
+                        label: 'بازدید',
+                        data: {{ chart_values|safe|default:"[]" }},
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#6366f1',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0, callback: v => v.toLocaleString('fa-IR') } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    }
+}
+</script>
+{% endblock %}

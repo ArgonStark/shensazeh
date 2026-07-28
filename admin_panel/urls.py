@@ -97,6 +97,8 @@ urlpatterns = [
     path('staff/<int:pk>/permissions/', views.AdminStaffPermissionsView.as_view(), name='staff_permissions'),
     # Audit
     path('audit/', views.AdminAuditLogListView.as_view(), name='audit_list'),
+    # Site visits
+    path('visits/', views.AdminSiteVisitListView.as_view(), name='visit_list'),
     # Services
     path('services/', views.AdminServiceListView.as_view(), name='service_list'),
     path('services/create/', views.AdminServiceCreateView.as_view(), name='service_create'),

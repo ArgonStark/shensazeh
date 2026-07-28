@@ -79,6 +79,9 @@
                     <p class="text-sm text-gray-500">بازدید امروز</p>
                     <p class="text-2xl font-bold text-gray-800 mt-1">{{ today_visits|intcomma }}</p>
                     <p class="text-xs text-gray-400 mt-1">{{ total_visits|intcomma }} کل بازدید</p>
+                    {% if perms.dashboard.view_sitevisit %}
+                    <a href="{% url 'admin_panel:visit_list' %}" class="inline-block text-xs text-indigo-600 hover:text-indigo-800 mt-1">آمار کامل ←</a>
+                    {% endif %}
                 </div>
                 <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
                     <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

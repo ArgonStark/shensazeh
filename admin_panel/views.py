@@ -1936,6 +1936,113 @@ class AdminAuditLogListView(PanelPermissionMixin, ListView):
         return ctx
 
 
+# ─── Site visits ─────────────────────────────────────────────
+
+class AdminSiteVisitListView(PanelPermissionMixin, ListView):
+    """Traffic analytics for the storefront: headline counters, a 30-day chart
+    and top-page/top-visitor breakdowns, over the same raw visit log shown
+    below them. Every filter narrows the stats and the log together, so the
+    numbers always describe the rows on screen.
+    """
+    permission_required = 'dashboard.view_sitevisit'
+    template_name = 'admin_panel/analytics/visit_list.html'
+    context_object_name = 'visits'
+    paginate_by = 50
+
+    CHART_DAYS = 30
+    SEGMENT_CHOICES = [
+        ('', 'همه ترافیک'),
+        ('public', 'سایت (بدون پنل)'),
+        ('panel', 'پنل مدیریت'),
+    ]
+    WHO_CHOICES = [
+        ('', 'همه بازدیدکنندگان'),
+        ('members', 'کاربران وارد شده'),
+        ('guests', 'مهمان‌ها'),
+    ]
+
+    def _apply_filters(self, qs):
+        """Shared by the log queryset and every statistic on the page."""
+        from finance.text import parse_jalali_date
+        params = self.request.GET
+
+        segment = params.get('segment', '')
+        if segment == 'public':
+            qs = qs.exclude(path__startswith='/panel/')
+        elif segment == 'panel':
+            qs = qs.filter(path__startswith='/panel/')
+
+        who = params.get('who', '')
+        if who == 'members':
+            qs = qs.filter(user__isnull=False)
+        elif who == 'guests':
+            qs = qs.filter(user__isnull=True)
+
+        q = params.get('q', '').strip()
+        if q:
+            qs = qs.filter(Q(path__icontains=q) | Q(ip_address__icontains=q))
+
+        date_from = parse_jalali_date(params.get('from', ''))
+        date_to = parse_jalali_date(params.get('to', ''))
+        if date_from:
+            qs = qs.filter(visited_at__date__gte=date_from.togregorian())
+        if date_to:
+            qs = qs.filter(visited_at__date__lte=date_to.togregorian())
+        return qs
+
+    def get_queryset(self):
+        return self._apply_filters(SiteVisit.objects.select_related('user'))
+
+    def get_context_data(self, **kwargs):
+        import datetime
+
+        import jdatetime
+        ctx = super().get_context_data(**kwargs)
+        base = self._apply_filters(SiteVisit.objects.all())
+
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today_start - datetime.timedelta(days=6)
+        month_start = today_start - datetime.timedelta(days=self.CHART_DAYS - 1)
+
+        today_qs = base.filter(visited_at__gte=today_start)
+        month_qs = base.filter(visited_at__gte=month_start)
+        ctx['visits_today'] = today_qs.count()
+        ctx['visits_week'] = base.filter(visited_at__gte=week_start).count()
+        ctx['visits_month'] = month_qs.count()
+        ctx['visits_total'] = base.count()
+        ctx['unique_today'] = today_qs.values('ip_address').distinct().count()
+        ctx['unique_month'] = month_qs.values('ip_address').distinct().count()
+
+        # One bucket per Jalali day; counted per-day so a busy site never has
+        # to load a month of rows into memory.
+        labels, values = [], []
+        for offset in range(self.CHART_DAYS - 1, -1, -1):
+            day_start = today_start - datetime.timedelta(days=offset)
+            day_end = day_start + datetime.timedelta(days=1)
+            jd = jdatetime.datetime.fromgregorian(datetime=day_start)
+            labels.append(f'{jd.month}/{jd.day}')
+            values.append(base.filter(visited_at__gte=day_start, visited_at__lt=day_end).count())
+        ctx['chart_labels'] = json.dumps(labels)
+        ctx['chart_values'] = json.dumps(values)
+
+        top_pages = list(base.values('path').annotate(hits=Count('id')).order_by('-hits')[:10])
+        top_visitors = list(base.values('ip_address').annotate(hits=Count('id')).order_by('-hits')[:10])
+        # Bar widths are relative to the busiest row in each list.
+        for rows in (top_pages, top_visitors):
+            top = rows[0]['hits'] if rows else 0
+            for row in rows:
+                row['percent'] = round(row['hits'] * 100 / top) if top else 0
+        ctx['top_pages'] = top_pages
+        ctx['top_visitors'] = top_visitors
+
+        ctx['segment_choices'] = self.SEGMENT_CHOICES
+        ctx['who_choices'] = self.WHO_CHOICES
+        for key in ('q', 'segment', 'who', 'from', 'to'):
+            ctx[f'f_{key}'] = self.request.GET.get(key, '')
+        return ctx
+
+
 # ─── Services & Projects ────────────────────────────────────
 
 class AdminServiceListView(PanelPermissionMixin, ListView):
