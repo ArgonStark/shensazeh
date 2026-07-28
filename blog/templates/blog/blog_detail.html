@@ -26,7 +26,7 @@
         <h1 class="fw-bold mb-3">{{ post.title }}</h1>
 
         <div class="d-flex gap-3 text-muted mb-4 flex-wrap">
-          <span><i class="bi bi-calendar3 me-1"></i>{{ post.jalali_date }}</span>
+          <span><i class="bi bi-calendar3 me-1"></i>{{ post.created_at|date:'Y/m/d' }}</span>
           <span><i class="bi bi-person me-1"></i>{{ post.author.get_full_name|default:"تیم شن‌سازه" }}</span>
           {% if post.category %}
           <span class="badge bg-primary-subtle text-primary">{{ post.category }}</span>
@@ -101,7 +101,7 @@
             {% endif %}
             <div>
               <a href="{% url 'blog:blog_detail' recent.slug %}" class="text-decoration-none text-dark fw-bold small">{{ recent.title }}</a>
-              <div class="text-muted small mt-1">{{ recent.jalali_date }}</div>
+              <div class="text-muted small mt-1">{{ recent.created_at|date:'Y/m/d' }}</div>
             </div>
           </div>
           {% endfor %}

@@ -41,6 +41,8 @@
 
         {% include "admin_panel/components/richtext.html" with field="description" value=form.description.value label="توضیحات" placeholder="شرح پروژه را بنویسید؛ می‌توانید بین متن تصویر اضافه کنید…" %}
 
+        {% include "admin_panel/components/ai_assist.html" with field="description" kind="project" %}
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label for="id_client" class="block text-sm font-medium text-gray-700 mb-1">نام کارفرما</label>

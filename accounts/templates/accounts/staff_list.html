@@ -42,7 +42,7 @@
                 <span class="badge bg-primary">کارمند</span>
                 {% endif %}
               </td>
-              <td>{{ staff.jalali_date_joined }}</td>
+              <td>{{ staff.created_at|date:'Y/m/d' }}</td>
               <td>
                 {% if staff.is_active %}
                 <span class="badge bg-success-subtle text-success">فعال</span>

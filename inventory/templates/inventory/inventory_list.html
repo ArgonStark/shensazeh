@@ -75,7 +75,7 @@
               <td>{{ entry.quantity|intcomma }}</td>
               <td>{{ entry.supplier|default:"---" }}</td>
               <td class="text-muted small">{{ entry.notes|default:"---"|truncatewords:8 }}</td>
-              <td>{{ entry.jalali_date }}</td>
+              <td>{{ entry.created_at|date:'Y/m/d' }}</td>
               <td>{{ entry.created_by|default:'—' }}</td>
             </tr>
             {% empty %}

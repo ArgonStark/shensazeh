@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load admin_tags %}
 {% load static %}
 
 {% block title %}بلاگ | شن‌سازه{% endblock %}
@@ -34,10 +35,10 @@
           <h5 class="card-title fw-bold">
             <a href="{% url 'blog:blog_detail' post.slug %}" class="text-decoration-none text-dark">{{ post.title }}</a>
           </h5>
-          <p class="card-text text-muted small">{{ post.excerpt|default:post.content|truncatewords:25 }}</p>
+          <p class="card-text text-muted small">{{ post.excerpt|default:post.content|plain_text|truncatewords:25 }}</p>
           <div class="mt-auto d-flex justify-content-between align-items-center">
             <small class="text-muted">
-              <i class="bi bi-calendar3 me-1"></i>{{ post.jalali_date }}
+              <i class="bi bi-calendar3 me-1"></i>{{ post.created_at|date:'Y/m/d' }}
             </small>
             <small class="text-muted">
               <i class="bi bi-chat me-1"></i>{{ post.comments_count|default:"۰" }} نظر

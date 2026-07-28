@@ -32,7 +32,7 @@
             {% for order in orders %}
             <tr>
               <td class="fw-bold">#{{ order.id }}</td>
-              <td>{{ order.jalali_date }}</td>
+              <td>{{ order.created_at|date:'Y/m/d' }}</td>
               <td>{{ order.items_count }} قلم</td>
               <td class="fw-bold">{{ order.total_amount|toman }} تومان</td>
               <td>

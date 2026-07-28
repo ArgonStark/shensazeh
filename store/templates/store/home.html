@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load admin_tags %}
 {% load static %}
 {% load humanize %}
 
@@ -146,7 +147,7 @@
         <div class="service-card">
           <div class="icon"><i class="bi {% if service.icon %}{{ service.icon }}{% else %}bi-tools{% endif %}"></i></div>
           <h5 class="fw-bold mb-2">{{ service.title }}</h5>
-          <p class="text-muted mb-3">{{ service.description|truncatewords:18 }}</p>
+          <p class="text-muted mb-3">{{ service.description|plain_text|truncatewords:18 }}</p>
           <a href="{% url 'services:service_detail' service.slug %}" class="fw-bold text-brand">بیشتر بدانید <i class="bi bi-arrow-left ms-1"></i></a>
         </div>
       </div>

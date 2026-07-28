@@ -32,6 +32,26 @@ STYLE_LABELS = {
     'technical': 'فنی و تخصصی',
 }
 
+# What to write, per panel section. The blog wants an article; a service or
+# project page wants sales copy with a different shape, so one prompt for all
+# three produced blog posts in the wrong places.
+KIND_PROMPTS = {
+    'blog': (
+        'یک مقاله وبلاگ به فارسی بنویس.\n'
+        'شامل عنوان، خلاصه کوتاه و محتوای کامل با تیترهای میانی.'
+    ),
+    'service': (
+        'یک متن معرفی برای صفحه یک «خدمت» به فارسی بنویس.\n'
+        'شامل توضیح خدمت، مزایا، مراحل انجام کار و یک دعوت به تماس در پایان.\n'
+        'از تیترهای میانی کوتاه استفاده کن. عنوان تکراری در ابتدای متن نیاور.'
+    ),
+    'project': (
+        'یک متن معرفی برای صفحه یک «پروژه» اجرا شده به فارسی بنویس.\n'
+        'شامل معرفی پروژه، چالش‌ها، راهکار اجرا شده و نتیجه نهایی.\n'
+        'از تیترهای میانی کوتاه استفاده کن. عنوان تکراری در ابتدای متن نیاور.'
+    ),
+}
+
 
 class AIError(Exception):
     """Raised with a Persian, user-facing message — surfaced straight to the panel."""
@@ -49,12 +69,15 @@ def _proxy(site) -> str | None:
     return (getattr(site, 'ai_proxy_url', '') or '').strip() or None
 
 
-def _prompt(topic: str, style: str) -> str:
+def _prompt(topic: str, style: str, kind: str = 'blog') -> str:
     style_text = STYLE_LABELS.get(style, STYLE_LABELS['formal'])
+    task = KIND_PROMPTS.get(kind, KIND_PROMPTS['blog'])
     return (
-        f'لطفاً یک مقاله وبلاگ به فارسی با لحن {style_text} بنویسید.\n'
-        f'مقاله باید شامل عنوان، خلاصه کوتاه و محتوای کامل باشد.\n'
-        f'موضوع مقاله در حوزه ابزارآلات و مصالح ساختمانی است.\n\n'
+        f'{task}\n'
+        f'لحن نوشتار: {style_text}.\n'
+        f'حوزه کاری مجموعه: ابزارآلات، مصالح ساختمانی و مقاوم‌سازی سازه.\n'
+        f'خروجی را به صورت HTML ساده بده (فقط p, h2, h3, ul, li, strong).\n'
+        f'هیچ توضیح اضافه‌ای خارج از متن ننویس.\n\n'
         f'موضوع: {topic}'
     )
 
@@ -206,15 +229,15 @@ def _openrouter(site, prompt: str) -> str:
 PROVIDERS = {'anthropic': _anthropic, 'openai': _openai, 'openrouter': _openrouter}
 
 
-def generate_article(topic: str, style: str = 'formal', site=None) -> str:
-    """Generate article text with whichever provider the panel is configured for."""
+def generate_article(topic: str, style: str = 'formal', site=None, kind: str = 'blog') -> str:
+    """Generate content with whichever provider the panel is configured for."""
     from .models import SiteSetting
 
     site = site or SiteSetting.load()
     provider = PROVIDERS.get(site.ai_provider)
     if provider is None:
         raise AIError('سرویس هوش مصنوعی انتخاب‌شده پشتیبانی نمی‌شود.')
-    return provider(site, _prompt(topic, style))
+    return provider(site, _prompt(topic, style, kind))
 
 
 def openrouter_models(api_key: str = '', proxy: str = '') -> list:

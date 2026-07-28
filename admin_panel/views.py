@@ -2148,12 +2148,13 @@ class AdminAIAssistView(PanelPermissionMixin, View):
     def post(self, request):
         prompt = request.POST.get('prompt', '').strip()
         style = request.POST.get('style', 'formal')
+        kind = request.POST.get('kind', 'blog')
         if not prompt:
             return JsonResponse({'error': 'متن درخواست الزامی است.'}, status=400)
 
         from .ai import AIError, generate_article
         try:
-            return JsonResponse({'content': generate_article(prompt, style)})
+            return JsonResponse({'content': generate_article(prompt, style, kind=kind)})
         except AIError as exc:
             # AIError messages are written for the panel user; anything else is
             # an internal fault and must not leak its detail to the browser.

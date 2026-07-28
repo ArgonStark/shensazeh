@@ -1,0 +1,40 @@
+{% comment %}
+AI writing assistant for a rich-text field.
+
+  {% include "admin_panel/components/ai_assist.html" with field="description" kind="service" %}
+
+`field` must match a richtext.html field (it inserts into window.rtEditors[field]).
+`kind` selects the prompt shape on the server: blog | service | project.
+Inserts at the cursor rather than replacing — generated text is a starting
+point, not a substitute for what the writer already has.
+{% endcomment %}
+<div x-data="aiAssistField('{{ field }}', '{{ kind|default:'blog' }}', '{% url 'admin_panel:ai_assist' %}', '{{ csrf_token }}')"
+     class="rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-3">
+    <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+        </svg>
+        <span class="text-sm font-semibold text-gray-800">نوشتن با هوش مصنوعی</span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-2">
+        <input type="text" x-model="topic" @keydown.enter.prevent="generate()"
+               placeholder="موضوع یا چند کلمه کلیدی — خالی بماند از عنوان استفاده می‌شود"
+               class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition">
+        <select x-model="style"
+                class="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-500 outline-none transition">
+            <option value="formal">رسمی</option>
+            <option value="informal">صمیمی</option>
+            <option value="technical">فنی</option>
+        </select>
+        <button type="button" @click="generate()" :disabled="loading"
+                class="inline-flex items-center justify-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium whitespace-nowrap">
+            <svg x-show="loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span x-text="loading ? 'در حال نوشتن…' : 'تولید متن'"></span>
+        </button>
+    </div>
+    <p class="text-xs text-gray-500">متن تولیدشده به انتهای محتوای فعلی اضافه می‌شود و چیزی را پاک نمی‌کند.</p>
+</div>

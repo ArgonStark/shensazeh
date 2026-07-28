@@ -25,6 +25,10 @@ def _canonical_base(request):
     return base
 
 
+DEFAULT_SEO_TITLE = 'شن‌سازه - ابزار و مصالح ساختمانی'
+DEFAULT_SEO_DESCRIPTION = 'فروش ابزارآلات و مصالح ساختمانی'
+
+
 def site_settings(request):
     """Expose the singleton SiteSetting to all templates as `site`."""
     context = {'canonical_base': _canonical_base(request)}
@@ -33,4 +37,12 @@ def site_settings(request):
     except Exception:
         # During initial migration the table may not exist yet.
         context['site'] = None
+
+    # Resolved here rather than in the template so the SEO partial can use
+    # {% with %} + |default. {% firstof ... as %} stores an *escaped* string,
+    # which makes any filter applied afterwards a no-op — a page description
+    # then ships raw "&lt;p&gt;" markup to search engines.
+    site = context['site']
+    context['seo_default_title'] = (getattr(site, 'site_name', '') or DEFAULT_SEO_TITLE)
+    context['seo_default_description'] = (getattr(site, 'tagline', '') or DEFAULT_SEO_DESCRIPTION)
     return context

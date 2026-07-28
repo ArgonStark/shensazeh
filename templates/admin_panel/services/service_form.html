@@ -41,6 +41,8 @@
 
         {% include "admin_panel/components/richtext.html" with field="description" value=form.description.value label="توضیحات" placeholder="توضیح خدمت را بنویسید؛ می‌توانید بین متن تصویر اضافه کنید…" %}
 
+        {% include "admin_panel/components/ai_assist.html" with field="description" kind="service" %}
+
         {% include "admin_panel/components/icon_picker.html" with field="icon" value=form.icon.value %}
 
         <div>

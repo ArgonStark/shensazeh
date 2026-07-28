@@ -104,3 +104,83 @@ class EditorUploadTests(TestCase):
     def test_anonymous_is_redirected(self):
         self.client.logout()
         self.assertEqual(self.client.post(self.url, {'image': self._png()}).status_code, 302)
+
+
+class RichTextPreviewTests(TestCase):
+    """List previews show a rich-text body as readable text.
+
+    striptags alone is not enough: it removes the tags but leaves entities like
+    &nbsp; behind, which the autoescaper then renders visibly. Quill emits
+    plenty of &nbsp;, so both had to be handled.
+    """
+
+    def setUp(self):
+        self.body = '<p>اجرای&nbsp;تخصصی&nbsp;شاتکریت</p><p>راهکار هوشمندانه</p>'
+        self.service = Service.objects.create(title='شاتکریت', slug='shotcrete-pv',
+                                              description=self.body, is_active=True)
+        Project.objects.create(title='پروژه', slug='proj-pv',
+                               description=self.body, is_active=True)
+
+    def test_plain_text_filter_strips_tags_and_entities(self):
+        from admin_panel.templatetags.admin_tags import plain_text
+        out = plain_text(self.body)
+        self.assertNotIn('<p>', out)
+        self.assertNotIn('&nbsp;', out)
+        self.assertIn('اجرای تخصصی شاتکریت', out)
+
+    def test_plain_text_handles_empty(self):
+        from admin_panel.templatetags.admin_tags import plain_text
+        self.assertEqual(plain_text(''), '')
+        self.assertEqual(plain_text(None), '')
+
+    def test_storefront_service_list_shows_readable_teaser(self):
+        html = self.client.get(reverse('services:service_list')).content.decode()
+        self.assertNotIn('&lt;p&gt;', html)
+        self.assertNotIn('&amp;nbsp;', html)
+
+    def test_storefront_project_list_shows_readable_teaser(self):
+        html = self.client.get(reverse('services:project_list')).content.decode()
+        self.assertNotIn('&lt;p&gt;', html)
+        self.assertNotIn('&amp;nbsp;', html)
+
+    def test_panel_service_list_shows_readable_teaser(self):
+        from accounts.models import User
+        from admin_panel.permissions import apply_role_defaults
+        staff = User.objects.create_user(username='pv', mobile='09120007111',
+                                         password='x', is_staff=True)
+        apply_role_defaults(staff, 'content')
+        self.client.force_login(staff)
+        html = self.client.get(reverse('admin_panel:service_list')).content.decode()
+        self.assertNotIn('&lt;p&gt;', html)
+        self.assertNotIn('&amp;nbsp;', html)
+        self.assertIn('اجرای تخصصی شاتکریت', html)
+
+    def test_meta_description_is_clean_text(self):
+        """A meta description carrying &nbsp; or markup is what Google shows."""
+        html = self.client.get(self.service.get_absolute_url()).content.decode()
+        meta = html.split('name="description" content="')[1].split('"')[0]
+        self.assertNotIn('&nbsp;', meta)
+        self.assertNotIn('<', meta)
+        self.assertIn('اجرای تخصصی شاتکریت', meta)
+
+
+class TemplateCommentTests(TestCase):
+    """Django's {# #} comment is single-line only. A two-line one is not a
+    comment at all — it renders as literal text on the page."""
+
+    def test_no_multiline_hash_comments_in_templates(self):
+        import pathlib
+        import re
+        offenders = []
+        for path in pathlib.Path('.').rglob('*.html'):
+            if 'venv' in str(path) or 'staticfiles' in str(path):
+                continue
+            for num, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                for match in re.finditer(r'\{#', line):
+                    if '#}' not in line[match.start():]:
+                        offenders.append(f'{path}:{num}')
+        self.assertEqual(offenders, [], f'unterminated {{# #}} comments: {offenders}')
+
+    def test_seo_comment_does_not_leak_onto_the_page(self):
+        html = self.client.get(reverse('services:service_list')).content.decode()
+        self.assertNotIn('Canonical drops the query string', html)

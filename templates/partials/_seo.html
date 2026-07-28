@@ -1,4 +1,5 @@
 {% load static %}
+{% load admin_tags %}
 {% comment %}
 Head SEO tags. Pages override base.html's `seo` block and re-include this with
 their own values:
@@ -9,29 +10,32 @@ Accepted: seo_title, seo_description, seo_image (an ImageField), seo_type,
 seo_robots. Every one has a fallback, so a page that overrides nothing still
 emits a complete, valid set.
 {% endcomment %}
-{% firstof seo_title site.site_name "شن‌سازه - ابزار و مصالح ساختمانی" as head_title %}
-{% firstof seo_description site.tagline "فروش ابزارآلات و مصالح ساختمانی" as head_desc %}
+{% comment %}{% with %} not {% firstof ... as %}: the latter stores an escaped
+string, so |plain_text after it is a no-op and raw markup reaches the tags.
+The default_* values come from the context processor and always exist, which
+keeps them safe to use as filter arguments.{% endcomment %}
 {% firstof seo_type "website" as head_type %}
 {% firstof canonical_base as base_url %}
 {% if seo_image %}{% firstof seo_image.url as img_path %}{% else %}{% static 'img/logo-mark.png' as img_path %}{% endif %}
+{% with head_title=seo_title|default:seo_default_title head_desc=seo_description|default:seo_default_description %}
 
-<meta name="description" content="{{ head_desc|striptags|truncatechars:160 }}">
-{# Canonical drops the query string, so filtered and paginated variants don't
-   compete with the page they're derived from. #}
+<meta name="description" content="{{ head_desc|plain_text|truncatechars:160 }}">
+{% comment %}Canonical drops the query string, so filtered and paginated
+variants don't compete with the page they're derived from.{% endcomment %}
 <link rel="canonical" href="{{ base_url }}{{ request.path }}">
 <meta name="robots" content="{% firstof seo_robots 'index, follow' %}">
 
 <meta property="og:site_name" content="{{ site.site_name|default:'شن‌سازه' }}">
 <meta property="og:locale" content="fa_IR">
 <meta property="og:type" content="{{ head_type }}">
-<meta property="og:title" content="{{ head_title|striptags }}">
-<meta property="og:description" content="{{ head_desc|striptags|truncatechars:160 }}">
+<meta property="og:title" content="{{ head_title|plain_text }}">
+<meta property="og:description" content="{{ head_desc|plain_text|truncatechars:160 }}">
 <meta property="og:url" content="{{ base_url }}{{ request.path }}">
 <meta property="og:image" content="{{ base_url }}{{ img_path }}">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ head_title|striptags }}">
-<meta name="twitter:description" content="{{ head_desc|striptags|truncatechars:160 }}">
+<meta name="twitter:title" content="{{ head_title|plain_text }}">
+<meta name="twitter:description" content="{{ head_desc|plain_text|truncatechars:160 }}">
 <meta name="twitter:image" content="{{ base_url }}{{ img_path }}">
 
 {% if head_type == "website" %}
@@ -39,3 +43,4 @@ emits a complete, valid set.
 {"@context":"https://schema.org","@type":"Organization","name":"{{ site.site_name|default:'شن‌سازه'|escapejs }}","url":"{{ base_url }}/","logo":"{{ base_url }}{% static 'img/logo-mark.png' %}"{% if site.phone %},"telephone":"{{ site.phone|escapejs }}"{% endif %}{% if site.address %},"address":{"@type":"PostalAddress","streetAddress":"{{ site.address|escapejs }}"}{% endif %}}
 </script>
 {% endif %}
+{% endwith %}

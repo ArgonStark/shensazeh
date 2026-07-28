@@ -107,7 +107,7 @@
                     <span class="badge bg-secondary-subtle text-secondary">پیش‌نویس</span>
                     {% endif %}
                   </td>
-                  <td class="text-muted small">{{ invoice.jalali_date }}</td>
+                  <td class="text-muted small">{{ invoice.created_at|date:'Y/m/d' }}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -192,7 +192,7 @@
           <div class="py-2 {% if not forloop.last %}border-bottom{% endif %}">
             <div class="d-flex justify-content-between">
               <strong class="small">{{ announcement.title }}</strong>
-              <small class="text-muted">{{ announcement.jalali_date }}</small>
+              <small class="text-muted">{{ announcement.created_at|date:'Y/m/d' }}</small>
             </div>
             <p class="text-muted small mb-0">{{ announcement.content|truncatewords:10 }}</p>
           </div>

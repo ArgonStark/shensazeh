@@ -45,3 +45,19 @@ def persian_number(value):
     for i, d in enumerate('0123456789'):
         result = result.replace(d, PERSIAN_DIGITS[i])
     return result
+
+
+@register.filter
+def plain_text(value):
+    """Rich-text HTML -> readable plain text, for previews and meta tags.
+
+    `striptags` alone is not enough: it removes the tags but leaves entities
+    like &nbsp; behind, which the autoescaper then renders visibly as
+    "&nbsp;". Unescaping after stripping gives real text.
+    """
+    if not value:
+        return ''
+    import html as _html
+
+    from django.utils.html import strip_tags
+    return _html.unescape(strip_tags(value)).replace('\xa0', ' ').strip()
