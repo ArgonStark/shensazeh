@@ -57,7 +57,7 @@
                     <td class="px-4 py-3 text-gray-700">{{ entry.quantity|intcomma }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ entry.supplier|default:"-" }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ entry.reference|default:"-" }}</td>
-                    <td class="px-4 py-3 text-gray-600">{{ entry.created_by.get_full_name|default:entry.created_by.mobile }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ entry.created_by|default:'—' }}</td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ entry.created_at|date:"Y/m/d H:i" }}</td>
                 </tr>
                 {% empty %}

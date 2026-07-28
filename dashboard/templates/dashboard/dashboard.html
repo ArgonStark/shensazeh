@@ -9,7 +9,7 @@
 <div class="container-fluid py-4 px-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold"><i class="bi bi-speedometer2 me-2"></i>داشبورد مدیریت</h2>
-    <span class="text-muted">{{ user.get_full_name|default:user.phone }}</span>
+    <span class="text-muted">{{ user|default:'—' }}</span>
   </div>
 
   <!-- Stat Cards -->

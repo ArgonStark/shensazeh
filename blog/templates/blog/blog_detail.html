@@ -73,10 +73,10 @@
         {% for comment in comments %}
         <div class="border-bottom py-3 {% if forloop.last %}border-0{% endif %}">
           <div class="d-flex justify-content-between mb-2">
-            <strong>{{ comment.user.get_full_name|default:comment.user.phone }}</strong>
-            <small class="text-muted">{{ comment.jalali_date }}</small>
+            <strong>{{ comment.user|default:'—' }}</strong>
+            <small class="text-muted">{{ comment.created_at|date:'Y/m/d' }}</small>
           </div>
-          <p class="mb-0 text-muted">{{ comment.content }}</p>
+          <p class="mb-0 text-muted">{{ comment.text }}</p>
         </div>
         {% empty %}
         <div class="text-center text-muted py-4">

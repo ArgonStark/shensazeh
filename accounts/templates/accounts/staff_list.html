@@ -33,7 +33,7 @@
             <tr>
               <td>{{ forloop.counter }}</td>
               <td class="fw-bold">{{ staff.get_full_name|default:"---" }}</td>
-              <td dir="ltr">{{ staff.phone }}</td>
+              <td dir="ltr">{{ staff.mobile }}</td>
               <td dir="ltr">{{ staff.email|default:"---" }}</td>
               <td>
                 {% if staff.is_superuser %}

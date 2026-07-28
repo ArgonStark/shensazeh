@@ -394,3 +394,81 @@ class ProductlessLineRenderTests(TestCase):
                                    quantity=1, unit_price=1_000_000)
         html = render_to_string('orders/invoice_pdf.html', self.ctx)
         self.assertIn('سیمان تیپ ۲', html)
+
+
+class NullableRelationTemplateTests(TestCase):
+    """Templates must not reach through nullable FKs inside filter arguments.
+
+    Django resolves filter *arguments* eagerly and does not swallow
+    VariableDoesNotExist for them, so `{{ a.b|default:c.d.e }}` 500s whenever
+    `c.d` is None — or when `.e` simply does not exist on the model. Both
+    kinds were present: several templates also used `.phone`, which
+    accounts.User has never had (the field is `mobile`).
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='nullrel', mobile='09120009111',
+                                              password='x', is_staff=True)
+        apply_role_defaults(self.staff, 'manager')
+        self.client.force_login(self.staff)
+
+    # ---- Invoice list: Invoice.party is nullable (walk-in, name-only sale) ----
+
+    def test_invoice_list_renders_with_party_less_invoice(self):
+        Invoice.objects.create(invoice_number='S-09001', doc_type='sale',
+                               party=None, customer_name='مشتری نقدی')
+        response = self.client.get(reverse('admin_panel:invoice_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'مشتری نقدی')
+
+    def test_invoice_list_falls_back_to_party_name(self):
+        party = Party.objects.create(name='شرکت الف')
+        Invoice.objects.create(invoice_number='S-09002', doc_type='sale',
+                               party=party, customer_name='')
+        response = self.client.get(reverse('admin_panel:invoice_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'شرکت الف')
+
+    # ---- Inventory list: InventoryEntry.created_by is SET_NULL ----
+
+    def test_inventory_list_renders_with_null_created_by(self):
+        product = make_product('شن شسته', 800_000, 20)
+        entry = InventoryEntry.objects.filter(product=product).first()
+        if entry is None:
+            entry = InventoryEntry.objects.create(product=product, entry_type='in',
+                                                  quantity=5, created_by=None)
+        InventoryEntry.objects.filter(pk=entry.pk).update(created_by=None)
+        response = self.client.get(reverse('admin_panel:inventory_list'))
+        self.assertEqual(response.status_code, 200)
+
+    # ---- Blog post list: BlogPost.author is SET_NULL ----
+
+    def test_post_list_renders_with_null_author(self):
+        from blog.models import BlogPost
+        BlogPost.objects.create(title='مقاله بی‌نویسنده', slug='no-author',
+                                content='متن', author=None)
+        response = self.client.get(reverse('admin_panel:post_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'مقاله بی‌نویسنده')
+
+    def test_post_list_shows_author_name(self):
+        from blog.models import BlogPost
+        BlogPost.objects.create(title='مقاله دار', slug='has-author',
+                                content='متن', author=self.staff)
+        response = self.client.get(reverse('admin_panel:post_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.staff.mobile)
+
+    # ---- User has `mobile`, never `phone` ----
+
+    def test_user_model_has_no_phone_attribute(self):
+        """Guards the templates that used `.phone` as a filter argument."""
+        self.assertFalse(hasattr(self.staff, 'phone'))
+        self.assertTrue(hasattr(self.staff, 'mobile'))
+
+    def test_user_str_is_full_name_or_mobile(self):
+        """The templates now lean on __str__ instead of hand-rolling it."""
+        self.assertEqual(str(self.staff), self.staff.mobile)
+        self.staff.first_name, self.staff.last_name = 'علی', 'رضایی'
+        self.staff.save()
+        self.assertEqual(str(User.objects.get(pk=self.staff.pk)), 'علی رضایی')

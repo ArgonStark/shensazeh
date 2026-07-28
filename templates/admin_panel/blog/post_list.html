@@ -51,7 +51,7 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3 font-medium text-gray-800">{{ post.title }}</td>
-                        <td class="px-4 py-3 text-gray-600">{{ post.author.get_full_name|default:post.author.mobile }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ post.author|default:'—' }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ post.views|intcomma|default:0 }}</td>
                         <td class="px-4 py-3">
                             {% if post.is_published %}

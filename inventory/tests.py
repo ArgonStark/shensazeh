@@ -173,3 +173,36 @@ class ProductExcelTests(TestCase):
         new = Product.objects.get(name='ماسه شسته')
         self.assertEqual(new.unit, 'کیسه')
         self.assertEqual(new.stock, 0)
+
+
+class InventoryListRenderTests(TestCase):
+    """The storefront list used `{{ entry.created_by.get_full_name|default:entry.created_by.phone }}`.
+
+    Two defects in one expression: `created_by` is SET_NULL so it can be None,
+    and accounts.User has no `phone` field at all (it is `mobile`). As a filter
+    argument either one raises VariableDoesNotExist rather than rendering
+    empty, so the page 500'd on every entry.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_user(username='invstaff', mobile='09120008888',
+                                              password='x', is_staff=True)
+        apply_role_defaults(self.staff, 'warehouse')
+        category = Category.objects.create(name='مصالح', slug='materials-render')
+        self.product = Product.objects.create(name='ماسه', slug='sand-render',
+                                              category=category, price=500_000, stock=100)
+        self.client.force_login(self.staff)
+
+    def test_list_renders_with_null_created_by(self):
+        entry = InventoryEntry.objects.create(product=self.product, entry_type='in',
+                                              quantity=10, created_by=self.staff)
+        InventoryEntry.objects.filter(pk=entry.pk).update(created_by=None)
+        response = self.client.get(reverse('inventory:inventory_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_list_shows_creator_mobile_when_no_full_name(self):
+        InventoryEntry.objects.create(product=self.product, entry_type='in',
+                                      quantity=10, created_by=self.staff)
+        response = self.client.get(reverse('inventory:inventory_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.staff.mobile)
