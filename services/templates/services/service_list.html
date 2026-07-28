@@ -33,7 +33,7 @@
         </div>
         <div class="card-body d-flex flex-column">
           <h5 class="card-title fw-bold">{{ service.title }}</h5>
-          <p class="card-text text-muted small">{{ service.description|truncatewords:20 }}</p>
+          <p class="card-text text-muted small">{{ service.description|striptags|truncatewords:20 }}</p>
           <a href="{% url 'services:service_detail' service.slug %}" class="btn btn-outline-primary mt-auto">
             اطلاعات بیشتر <i class="bi bi-arrow-left ms-1"></i>
           </a>

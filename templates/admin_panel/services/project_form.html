@@ -39,10 +39,7 @@
             <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
         </div>
 
-        <div>
-            <label for="id_description" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-            <textarea name="description" id="id_description" rows="6" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">{{ form.description.value|default_if_none:'' }}</textarea>
-        </div>
+        {% include "admin_panel/components/richtext.html" with field="description" value=form.description.value label="توضیحات" placeholder="شرح پروژه را بنویسید؛ می‌توانید بین متن تصویر اضافه کنید…" %}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

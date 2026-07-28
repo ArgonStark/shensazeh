@@ -24,7 +24,7 @@
       <h1 class="fw-bold mb-3">{{ service.title }}</h1>
 
       <div class="service-content lh-lg">
-        {{ service.description|linebreaks }}
+        {{ service.description|safe }}
       </div>
 
       {% if service.features %}

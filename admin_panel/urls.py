@@ -113,5 +113,6 @@ urlpatterns = [
     path('settings/', views.AdminSiteSettingsView.as_view(), name='site_settings'),
     # API
     path('ai-assist/', views.AdminAIAssistView.as_view(), name='ai_assist'),
+    path('editor/upload/', views.AdminEditorUploadView.as_view(), name='editor_upload'),
     path('search/', views.AdminGlobalSearchView.as_view(), name='global_search'),
 ]

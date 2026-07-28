@@ -39,15 +39,9 @@
             <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
         </div>
 
-        <div>
-            <label for="id_description" class="block text-sm font-medium text-gray-700 mb-1">توضیحات</label>
-            <textarea name="description" id="id_description" rows="6" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">{{ form.description.value|default_if_none:'' }}</textarea>
-        </div>
+        {% include "admin_panel/components/richtext.html" with field="description" value=form.description.value label="توضیحات" placeholder="توضیح خدمت را بنویسید؛ می‌توانید بین متن تصویر اضافه کنید…" %}
 
-        <div>
-            <label for="id_icon" class="block text-sm font-medium text-gray-700 mb-1">آیکون (کلاس CSS یا SVG)</label>
-            <input type="text" name="icon" id="id_icon" value="{{ form.icon.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr" placeholder="مثال: wrench">
-        </div>
+        {% include "admin_panel/components/icon_picker.html" with field="icon" value=form.icon.value %}
 
         <div>
             <label for="id_image" class="block text-sm font-medium text-gray-700 mb-1">تصویر</label>

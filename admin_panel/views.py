@@ -2176,6 +2176,58 @@ class AdminAIAssistView(PanelPermissionMixin, View):
             return JsonResponse({'error': str(e)}, status=500)
 
 
+# ─── Rich-text editor image upload ───────────────────────────
+
+class AdminEditorUploadView(StaffRequiredMixin, View):
+    """Upload target for images dropped into a rich-text editor.
+
+    Without this, Quill inlines pasted images as base64 data URIs, which lands
+    a whole JPEG inside the model's text column — the row balloons, every list
+    query drags it along, and the image can never be cached or served by nginx.
+    Here the bytes go to MEDIA_ROOT and the editor stores only a URL.
+    """
+    ALLOWED = {'image/jpeg': '.jpg', 'image/png': '.png',
+               'image/gif': '.gif', 'image/webp': '.webp'}
+    MAX_BYTES = 5 * 1024 * 1024
+
+    def test_func(self):
+        if not super().test_func():
+            return False
+        # Anyone who can author content may attach an image to it.
+        return any(self.request.user.has_perm(p) for p in (
+            'blog.add_blogpost', 'blog.change_blogpost',
+            'services.add_service', 'services.change_service',
+            'services.add_project', 'services.change_project',
+            'store.add_product', 'store.change_product'))
+
+    def post(self, request):
+        upload = request.FILES.get('image')
+        if not upload:
+            return JsonResponse({'error': 'فایلی ارسال نشد.'}, status=400)
+        if upload.size > self.MAX_BYTES:
+            return JsonResponse({'error': 'حجم تصویر نباید بیش از ۵ مگابایت باشد.'}, status=400)
+
+        # Trust the decoder, not the declared content type or the filename.
+        from PIL import Image
+        try:
+            image = Image.open(upload)
+            image.verify()
+        except Exception:
+            return JsonResponse({'error': 'فایل ارسالی یک تصویر معتبر نیست.'}, status=400)
+
+        content_type = Image.MIME.get(image.format, '')
+        if content_type not in self.ALLOWED:
+            return JsonResponse({'error': 'فرمت تصویر پشتیبانی نمی‌شود.'}, status=400)
+
+        # Generated name — never echo the client's filename back into a path.
+        import datetime
+        from django.core.files.storage import default_storage
+        upload.seek(0)
+        name = f'editor/{datetime.date.today():%Y/%m}/{uuid.uuid4().hex}{self.ALLOWED[content_type]}'
+        saved = default_storage.save(name, upload)
+        return JsonResponse({'url': default_storage.url(saved)})
+
+
 # ─── Global Search ───────────────────────────────────────────
 
 class AdminGlobalSearchView(StaffRequiredMixin, View):

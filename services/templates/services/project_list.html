@@ -34,7 +34,7 @@
           <h5 class="card-title fw-bold">
             <a href="{% url 'services:project_detail' project.slug %}" class="text-decoration-none text-dark">{{ project.title }}</a>
           </h5>
-          <p class="card-text text-muted small">{{ project.description|truncatewords:15 }}</p>
+          <p class="card-text text-muted small">{{ project.description|striptags|truncatewords:15 }}</p>
           <div class="d-flex justify-content-between align-items-center">
             {% if project.location %}
             <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ project.location }}</small>
