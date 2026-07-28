@@ -67,6 +67,10 @@
     input.click();
   }
 
+  // Instances by field name, so page scripts (e.g. the blog AI assistant) can
+  // insert into an editor without owning its construction.
+  window.rtEditors = window.rtEditors || {};
+
   function init() {
     const editors = document.querySelectorAll('.rt-editor');
     if (!editors.length) return;
@@ -94,6 +98,8 @@
       if (textarea.value.trim()) {
         quill.clipboard.dangerouslyPasteHTML(textarea.value);
       }
+
+      window.rtEditors[field] = quill;
 
       // getSemanticHTML() emits clean markup; innerHTML would carry Quill's
       // internal classes and a trailing <p><br></p> into the database.

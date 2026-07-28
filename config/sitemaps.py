@@ -5,12 +5,18 @@ jDateTimeField, so the stored values are jdatetime objects, and the sitemap
 framework formats lastmod as a W3C timestamp that must be Gregorian.
 """
 
+from django.conf import settings
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 
 from blog.models import BlogPost
 from services.models import Project, Service
 from store.models import Category, Product
+
+
+# Match the scheme the canonical tags advertise; the CDN terminates TLS and
+# does not forward X-Forwarded-Proto, so the request would report "http".
+PROTOCOL = 'https' if settings.SITE_URL.startswith('https') else None
 
 
 def _gregorian(value):
@@ -22,6 +28,7 @@ def _gregorian(value):
 
 
 class StaticViewSitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.7
     changefreq = 'weekly'
 
@@ -34,6 +41,7 @@ class StaticViewSitemap(Sitemap):
 
 
 class BlogPostSitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.8
     changefreq = 'weekly'
 
@@ -45,6 +53,7 @@ class BlogPostSitemap(Sitemap):
 
 
 class ProductSitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.7
     changefreq = 'daily'
 
@@ -53,6 +62,7 @@ class ProductSitemap(Sitemap):
 
 
 class CategorySitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.6
     changefreq = 'weekly'
 
@@ -61,6 +71,7 @@ class CategorySitemap(Sitemap):
 
 
 class ServiceSitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.7
     changefreq = 'monthly'
 
@@ -69,6 +80,7 @@ class ServiceSitemap(Sitemap):
 
 
 class ProjectSitemap(Sitemap):
+    protocol = PROTOCOL
     priority = 0.6
     changefreq = 'monthly'
 

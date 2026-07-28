@@ -12,7 +12,7 @@ emits a complete, valid set.
 {% firstof seo_title site.site_name "شن‌سازه - ابزار و مصالح ساختمانی" as head_title %}
 {% firstof seo_description site.tagline "فروش ابزارآلات و مصالح ساختمانی" as head_desc %}
 {% firstof seo_type "website" as head_type %}
-{% with base_url=request.scheme|add:"://"|add:request.get_host %}
+{% firstof canonical_base as base_url %}
 {% if seo_image %}{% firstof seo_image.url as img_path %}{% else %}{% static 'img/logo-mark.png' as img_path %}{% endif %}
 
 <meta name="description" content="{{ head_desc|striptags|truncatechars:160 }}">
@@ -39,4 +39,3 @@ emits a complete, valid set.
 {"@context":"https://schema.org","@type":"Organization","name":"{{ site.site_name|default:'شن‌سازه'|escapejs }}","url":"{{ base_url }}/","logo":"{{ base_url }}{% static 'img/logo-mark.png' %}"{% if site.phone %},"telephone":"{{ site.phone|escapejs }}"{% endif %}{% if site.address %},"address":{"@type":"PostalAddress","streetAddress":"{{ site.address|escapejs }}"}{% endif %}}
 </script>
 {% endif %}
-{% endwith %}

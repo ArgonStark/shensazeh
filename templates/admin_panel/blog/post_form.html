@@ -42,11 +42,7 @@
                     <input type="text" name="slug" id="id_slug" value="{{ form.slug.value|default_if_none:'' }}" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm font-mono" dir="ltr">
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">محتوا</label>
-                    <div id="quill-editor"></div>
-                    <textarea name="content" id="id_content" class="hidden">{{ form.content.value|default_if_none:'' }}</textarea>
-                </div>
+                {% include "admin_panel/components/richtext.html" with field="content" value=form.content.value label="محتوا" placeholder="محتوای مقاله را اینجا بنویسید؛ می‌توانید بین متن تصویر اضافه کنید…" %}
 
                 <div>
                     <label for="id_excerpt" class="block text-sm font-medium text-gray-700 mb-1">خلاصه</label>
@@ -123,34 +119,9 @@
 
 {% block extra_js %}
 <script>
-// ── Quill editor ──────────────────────────────────────────────
-const quill = new Quill('#quill-editor', {
-    theme: 'snow',
-    direction: 'rtl',
-    placeholder: 'محتوای مقاله را اینجا بنویسید...',
-    modules: {
-        toolbar: [
-            [{ header: [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            [{ align: [] }],
-            ['blockquote', 'code-block'],
-            ['link', 'image'],
-            ['clean'],
-        ],
-    },
-});
-
-// Load existing content
-const existingContent = document.getElementById('id_content').value;
-if (existingContent) {
-    quill.clipboard.dangerouslyPasteHTML(existingContent);
-}
-
-// Sync to hidden textarea before form submit
-document.querySelector('form').addEventListener('submit', () => {
-    document.getElementById('id_content').value = quill.getSemanticHTML();
-});
+// The editor itself is built by static/js/richtext.js, which also uploads
+// pasted images instead of inlining them as base64. We only need a handle.
+const quill = () => window.rtEditors && window.rtEditors.content;
 
 // ── Alpine component ──────────────────────────────────────────
 function postForm() {
@@ -167,7 +138,7 @@ function postForm() {
         },
         async aiAssistContent() {
             const title = document.getElementById('id_title').value;
-            const content = quill.getText().trim();
+            const content = quill() ? quill().getText().trim() : '';
             if (!title && !content) {
                 alert('لطفاً ابتدا عنوان یا محتوایی وارد کنید');
                 return;
@@ -183,7 +154,7 @@ function postForm() {
                 });
                 const data = await res.json();
                 if (data.content) {
-                    quill.clipboard.dangerouslyPasteHTML(data.content.replace(/\n/g, '<br>'));
+                    if (quill()) quill().clipboard.dangerouslyPasteHTML(data.content.replace(/\n/g, '<br>'));
                 } else {
                     alert(data.error || 'خطایی رخ داد');
                 }
