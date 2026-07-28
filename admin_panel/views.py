@@ -2163,6 +2163,20 @@ class AdminAIAssistView(PanelPermissionMixin, View):
             return JsonResponse({'error': 'خطای غیرمنتظره در تولید محتوا.'}, status=500)
 
 
+class AdminOpenRouterModelsView(PanelPermissionMixin, View):
+    """Live OpenRouter model catalogue for the settings model picker."""
+    permission_required = 'admin_panel.change_sitesetting'
+
+    def get(self, request):
+        from .ai import AIError, openrouter_models
+        from .models import SiteSetting
+        try:
+            models = openrouter_models(SiteSetting.load().openrouter_api_key)
+        except AIError as exc:
+            return JsonResponse({'error': str(exc)}, status=502)
+        return JsonResponse({'models': models})
+
+
 # ─── Rich-text editor image upload ───────────────────────────
 
 class AdminEditorUploadView(StaffRequiredMixin, View):

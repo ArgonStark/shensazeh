@@ -307,6 +307,7 @@ class SiteSettingForm(forms.ModelForm):
             'invoice_sms_enabled', 'invoice_sms_template',
             'ai_provider', 'anthropic_api_key', 'anthropic_model',
             'openai_api_key', 'openai_model',
+            'openrouter_api_key', 'openrouter_model', 'openrouter_web_search',
         ]
         widgets = {
             'site_name': forms.TextInput(attrs={'class': TW['input']}),
@@ -340,6 +341,10 @@ class SiteSettingForm(forms.ModelForm):
                                                   render_value=True),
             'anthropic_model': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
             'openai_model': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'openrouter_api_key': forms.PasswordInput(attrs={'class': TW['input'], 'dir': 'ltr',
+                                                             'placeholder': 'sk-or-v1-...'},
+                                                      render_value=True),
+            'openrouter_web_search': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
         }
 
 

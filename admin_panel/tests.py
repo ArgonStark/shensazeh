@@ -309,3 +309,132 @@ class AIAssistViewTests(TestCase):
             r = self.client.post(self.url, {'prompt': 'دریل'})
         self.assertEqual(r.status_code, 500)
         self.assertNotIn('secret', r.json()['error'])
+
+
+class OpenRouterProviderTests(TestCase):
+    """OpenRouter fronts ~370 models behind an OpenAI-shaped endpoint."""
+
+    def setUp(self):
+        self.site = SiteSetting.load()
+        self.site.ai_provider = 'openrouter'
+        self.site.openrouter_api_key = 'sk-or-test'
+        self.site.openrouter_model = 'anthropic/claude-opus-5'
+
+    def _ok(self, content='متن مقاله'):
+        return Mock(status_code=200,
+                    json=lambda: {'choices': [{'message': {'content': content}}]})
+
+    def test_missing_key_is_reported(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.openrouter_api_key = ''
+        with self.assertRaises(AIError) as ctx:
+            generate_article('تست', site=self.site)
+        self.assertIn('اوپن‌روتر', str(ctx.exception))
+
+    def test_returns_content(self):
+        from admin_panel.ai import generate_article
+        with patch('httpx.post', return_value=self._ok()):
+            self.assertEqual(generate_article('تست', site=self.site), 'متن مقاله')
+
+    def test_sends_selected_model_and_attribution_headers(self):
+        from admin_panel.ai import generate_article
+        with patch('httpx.post', return_value=self._ok()) as post:
+            generate_article('تست', site=self.site)
+        body = post.call_args.kwargs['json']
+        headers = post.call_args.kwargs['headers']
+        self.assertEqual(body['model'], 'anthropic/claude-opus-5')
+        self.assertEqual(headers['Authorization'], 'Bearer sk-or-test')
+        self.assertIn('X-Title', headers)
+
+    def test_web_search_tools_only_sent_when_enabled(self):
+        from admin_panel.ai import generate_article
+        with patch('httpx.post', return_value=self._ok()) as post:
+            generate_article('تست', site=self.site)
+        self.assertNotIn('tools', post.call_args.kwargs['json'])
+
+        self.site.openrouter_web_search = True
+        with patch('httpx.post', return_value=self._ok()) as post:
+            generate_article('تست', site=self.site)
+        tools = post.call_args.kwargs['json']['tools']
+        self.assertEqual([t['type'] for t in tools],
+                         ['openrouter:web_search', 'openrouter:web_fetch'])
+
+    def test_upstream_error_returned_as_200_is_surfaced(self):
+        """OpenRouter reports provider failures as HTTP 200 with an error object."""
+        from admin_panel.ai import AIError, generate_article
+        payload = {'error': {'message': 'model is overloaded'}}
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: payload)):
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        self.assertIn('overloaded', str(ctx.exception))
+
+    def test_no_credit_maps_to_message(self):
+        from admin_panel.ai import AIError, generate_article
+        with patch('httpx.post', return_value=Mock(status_code=402, json=lambda: {})):
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        self.assertIn('اعتبار', str(ctx.exception))
+
+    def test_null_content_maps_to_message(self):
+        from admin_panel.ai import AIError, generate_article
+        payload = {'choices': [{'message': {'content': None}}]}
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: payload)):
+            with self.assertRaises(AIError):
+                generate_article('تست', site=self.site)
+
+
+class OpenRouterModelListTests(TestCase):
+    CATALOGUE = {'data': [
+        {'id': 'anthropic/claude-opus-5', 'name': 'Claude Opus 5', 'context_length': 1000000,
+         'pricing': {'prompt': '0.000005', 'completion': '0.000025'},
+         'supported_parameters': ['tools']},
+        {'id': 'free/model', 'name': 'Free Model', 'context_length': 8192,
+         'pricing': {'prompt': '0', 'completion': '0'}, 'supported_parameters': []},
+    ]}
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_per_token_pricing_converted_to_per_million(self):
+        from admin_panel.ai import openrouter_models
+        with patch('httpx.get', return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                                  json=lambda: self.CATALOGUE)):
+            models = openrouter_models()
+        opus = next(m for m in models if m['id'] == 'anthropic/claude-opus-5')
+        self.assertEqual((opus['in'], opus['out']), (5.0, 25.0))
+        self.assertTrue(opus['tools'])
+        self.assertFalse(next(m for m in models if m['id'] == 'free/model')['tools'])
+
+    def test_result_is_cached_so_the_picker_does_not_refetch(self):
+        from admin_panel.ai import openrouter_models
+        with patch('httpx.get', return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                                  json=lambda: self.CATALOGUE)) as get:
+            openrouter_models()
+            openrouter_models()
+        self.assertEqual(get.call_count, 1)
+
+    def test_fetch_failure_raises_persian_error(self):
+        import httpx
+        from admin_panel.ai import AIError, openrouter_models
+        with patch('httpx.get', side_effect=httpx.ConnectError('boom')):
+            with self.assertRaises(AIError):
+                openrouter_models()
+
+    def test_endpoint_requires_settings_permission(self):
+        url = reverse('admin_panel:openrouter_models')
+        staff = User.objects.create_user(username='norights', mobile='09120006666',
+                                         password='x', is_staff=True)
+        self.client.force_login(staff)
+        self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_endpoint_returns_models(self):
+        url = reverse('admin_panel:openrouter_models')
+        boss = User.objects.create_user(username='boss', mobile='09120006667',
+                                        password='x', is_staff=True, is_superuser=True)
+        self.client.force_login(boss)
+        with patch('httpx.get', return_value=Mock(status_code=200, raise_for_status=lambda: None,
+                                                  json=lambda: self.CATALOGUE)):
+            r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.json()['models']), 2)

@@ -50,6 +50,7 @@ class SiteSetting(models.Model):
     AI_PROVIDER_CHOICES = [
         ('anthropic', 'Claude (Anthropic)'),
         ('openai', 'OpenAI'),
+        ('openrouter', 'OpenRouter (دسترسی به همه مدل‌ها)'),
     ]
     ai_provider = models.CharField('سرویس هوش مصنوعی', max_length=20,
                                    choices=AI_PROVIDER_CHOICES, default='anthropic')
@@ -59,6 +60,13 @@ class SiteSetting(models.Model):
                                        default='claude-opus-5')
     openai_model = models.CharField('مدل اوپن‌ای‌آی', max_length=60, blank=True,
                                     default='gpt-4o')
+    openrouter_api_key = models.CharField('کلید API اوپن‌روتر', max_length=200, blank=True)
+    # Namespaced slug, e.g. "anthropic/claude-opus-5" — longer than a bare model name.
+    openrouter_model = models.CharField('مدل اوپن‌روتر', max_length=120, blank=True,
+                                        default='anthropic/claude-opus-5')
+    openrouter_web_search = models.BooleanField(
+        'جستجوی وب هنگام تولید محتوا', default=False,
+        help_text='مدل در صورت نیاز وب را جستجو می‌کند. حدود ۰.۰۰۵ دلار برای هر جستجو.')
 
     updated_at = models.DateTimeField('آخرین بروزرسانی', auto_now=True)
 
