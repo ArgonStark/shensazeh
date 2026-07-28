@@ -5,15 +5,27 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-# systemd creates/owns /run/shensazeh (as www-data), so the socket bind
+# NOTE: the live unit on the server is named gunicorn.service and binds
+# /run/gunicorn/gunicorn.sock — that is what nginx proxies to. Keep this file
+# in sync with it; a second unit on the other socket serves no traffic and has
+# already caused one misdiagnosis.
+# systemd creates/owns /run/gunicorn (as www-data), so the socket bind
 # doesn't hit "Permission denied" trying to write directly into /run.
-RuntimeDirectory=shensazeh
+RuntimeDirectory=gunicorn
 WorkingDirectory=/var/www/shensazeh
 EnvironmentFile=/var/www/shensazeh/.env
+# gthread + threads: an AI generation blocks on network I/O for a minute or
+# more. Sync workers would tie up a whole worker for the duration.
+# --timeout must exceed the slowest upstream AI call (httpx waits 120s), or the
+# worker is killed mid-request and the browser sees a dropped connection
+# instead of an error. gunicorn's default of 30s killed every generation.
 ExecStart=/var/www/shensazeh/venv/bin/gunicorn \
     --workers 3 \
-    --timeout 60 \
-    --bind unix:/run/shensazeh/shensazeh.sock \
+    --worker-class gthread \
+    --threads 4 \
+    --timeout 180 \
+    --graceful-timeout 30 \
+    --bind unix:/run/gunicorn/gunicorn.sock \
     --access-logfile /var/log/shensazeh/access.log \
     --error-logfile /var/log/shensazeh/error.log \
     config.wsgi:application

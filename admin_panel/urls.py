@@ -115,5 +115,6 @@ urlpatterns = [
     path('ai-assist/', views.AdminAIAssistView.as_view(), name='ai_assist'),
     path('editor/upload/', views.AdminEditorUploadView.as_view(), name='editor_upload'),
     path('openrouter/models/', views.AdminOpenRouterModelsView.as_view(), name='openrouter_models'),
+    path('ai/test/', views.AdminAITestView.as_view(), name='ai_test'),
     path('search/', views.AdminGlobalSearchView.as_view(), name='global_search'),
 ]

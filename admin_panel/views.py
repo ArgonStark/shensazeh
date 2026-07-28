@@ -2164,6 +2164,21 @@ class AdminAIAssistView(PanelPermissionMixin, View):
             return JsonResponse({'error': 'خطای غیرمنتظره در تولید محتوا.'}, status=500)
 
 
+class AdminAITestView(PanelPermissionMixin, View):
+    """Probe the configured AI provider so a failure names its own cause."""
+    permission_required = 'admin_panel.change_sitesetting'
+
+    def post(self, request):
+        from .ai import AIError, test_connection
+        try:
+            return JsonResponse({'ok': True, 'message': test_connection()})
+        except AIError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=200)
+        except Exception:
+            logger.exception('AI connection test failed')
+            return JsonResponse({'ok': False, 'error': 'خطای غیرمنتظره در آزمایش اتصال.'}, status=200)
+
+
 class AdminOpenRouterModelsView(PanelPermissionMixin, View):
     """Live OpenRouter model catalogue for the settings model picker."""
     permission_required = 'admin_panel.change_sitesetting'

@@ -44,8 +44,25 @@ function aiAssistField(field, kind, endpoint, csrfToken) {
         body.append('kind', kind);
         body.append('csrfmiddlewaretoken', csrfToken);
 
-        const res = await fetch(endpoint, { method: 'POST', body: body });
-        const data = await res.json();
+        // Abort just under the server's 180s ceiling, so a slow model reports
+        // a timeout instead of the browser hanging on a dropped connection.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 170000);
+        let res;
+        try {
+          res = await fetch(endpoint, { method: 'POST', body: body, signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseError) {
+          // A gateway timeout or crash returns an HTML error page, not JSON.
+          this.notify('سرور پاسخ معتبری برنگرداند (احتمالاً درخواست بیش از حد طول کشید).');
+          return;
+        }
         if (!res.ok || !data.content) {
           this.notify(data.error || 'تولید متن ناموفق بود.');
           return;
@@ -57,7 +74,9 @@ function aiAssistField(field, kind, endpoint, csrfToken) {
         quill.setSelection(quill.getLength() - 1);
         this.notify('متن تولید شد.', 'success');
       } catch (e) {
-        this.notify('خطا در ارتباط با سرور.');
+        this.notify(e && e.name === 'AbortError'
+          ? 'تولید متن بیش از حد طول کشید. مدل سبک‌تری انتخاب کنید یا دوباره تلاش کنید.'
+          : 'خطا در ارتباط با سرور.');
       } finally {
         this.loading = false;
       }

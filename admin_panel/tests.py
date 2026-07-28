@@ -496,3 +496,52 @@ class AIProxyTests(TestCase):
             client.return_value.messages.create.return_value = reply
             generate_article('تست', site=self.site)
         http.assert_called_once_with(proxy='http://127.0.0.1:8118')
+
+
+class AIConnectionTestTests(TestCase):
+    """The test button turns "خطا در ارتباط با سرور" into a specific cause."""
+
+    def setUp(self):
+        self.boss = User.objects.create_user(username='aitest', mobile='09120008888',
+                                             password='x', is_staff=True, is_superuser=True)
+        self.client.force_login(self.boss)
+        self.url = reverse('admin_panel:ai_test')
+        self.site = SiteSetting.load()
+        self.site.ai_provider = 'openrouter'
+        self.site.openrouter_api_key = 'sk-or-test'
+        self.site.save()
+
+    def test_success_reports_the_provider(self):
+        payload = {'choices': [{'message': {'content': 'سلام'}}]}
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: payload)):
+            r = self.client.post(self.url)
+        self.assertTrue(r.json()['ok'])
+
+    def test_probe_uses_a_tiny_token_budget(self):
+        """A connectivity check must not cost the price of a full article."""
+        payload = {'choices': [{'message': {'content': 'سلام'}}]}
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: payload)) as post:
+            self.client.post(self.url)
+        self.assertEqual(post.call_args.kwargs['json']['max_tokens'], 16)
+
+    def test_blocked_ip_is_reported_as_such(self):
+        with patch('httpx.post', return_value=Mock(status_code=403, json=lambda: {})):
+            r = self.client.post(self.url)
+        body = r.json()
+        self.assertFalse(body['ok'])
+        self.assertIn('۴۰۳', body['error'])
+
+    def test_bad_key_is_reported_as_such(self):
+        with patch('httpx.post', return_value=Mock(status_code=401, json=lambda: {})):
+            r = self.client.post(self.url)
+        self.assertIn('معتبر نیست', r.json()['error'])
+
+    def test_failures_return_200_so_the_button_can_render_the_reason(self):
+        with patch('httpx.post', return_value=Mock(status_code=403, json=lambda: {})):
+            self.assertEqual(self.client.post(self.url).status_code, 200)
+
+    def test_requires_settings_permission(self):
+        plain = User.objects.create_user(username='plainai', mobile='09120008889',
+                                         password='x', is_staff=True)
+        self.client.force_login(plain)
+        self.assertEqual(self.client.post(self.url).status_code, 403)

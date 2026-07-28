@@ -82,7 +82,7 @@ def _prompt(topic: str, style: str, kind: str = 'blog') -> str:
     )
 
 
-def _anthropic(site, prompt: str) -> str:
+def _anthropic(site, prompt: str, max_tokens: int = MAX_TOKENS) -> str:
     key = site.anthropic_api_key or settings.ANTHROPIC_API_KEY
     if not key:
         raise AIError('کلید API کلاد تنظیم نشده است. از بخش تنظیمات آن را وارد کنید.')
@@ -96,7 +96,7 @@ def _anthropic(site, prompt: str) -> str:
     try:
         message = client.messages.create(
             model=site.anthropic_model or 'claude-opus-5',
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
             messages=[{'role': 'user', 'content': prompt}],
         )
     except anthropic.AuthenticationError:
@@ -118,7 +118,7 @@ def _anthropic(site, prompt: str) -> str:
     return text
 
 
-def _openai(site, prompt: str) -> str:
+def _openai(site, prompt: str, max_tokens: int = MAX_TOKENS) -> str:
     import httpx
 
     key = site.openai_api_key
@@ -131,7 +131,7 @@ def _openai(site, prompt: str) -> str:
             headers={'Authorization': f'Bearer {key}'},
             json={
                 'model': site.openai_model or 'gpt-4o',
-                'max_completion_tokens': MAX_TOKENS,
+                'max_completion_tokens': max_tokens,
                 'messages': [{'role': 'user', 'content': prompt}],
             },
             timeout=TIMEOUT,
@@ -156,7 +156,7 @@ def _openai(site, prompt: str) -> str:
     return text
 
 
-def _openrouter(site, prompt: str) -> str:
+def _openrouter(site, prompt: str, max_tokens: int = MAX_TOKENS) -> str:
     """OpenRouter speaks the OpenAI chat-completions shape across ~370 models.
 
     Web search, when enabled, is declared as OpenRouter's *server* tools: the
@@ -172,7 +172,7 @@ def _openrouter(site, prompt: str) -> str:
 
     body = {
         'model': site.openrouter_model or 'anthropic/claude-opus-5',
-        'max_tokens': MAX_TOKENS,
+        'max_tokens': max_tokens,
         'messages': [{'role': 'user', 'content': prompt}],
     }
     if site.openrouter_web_search:
@@ -294,3 +294,21 @@ def _per_million(value) -> float:
         return round(float(value) * 1_000_000, 4)
     except (TypeError, ValueError):
         return 0.0
+
+
+def test_connection(site=None) -> str:
+    """Round-trip the configured provider with a near-zero-cost request.
+
+    Turns "خطا در ارتباط با سرور" into a specific answer: wrong key, no credit,
+    IP refused, or working. Costs a fraction of a cent — it is a real call,
+    because only a real call proves the key and the network path together.
+    """
+    from .models import SiteSetting
+
+    site = site or SiteSetting.load()
+    provider = PROVIDERS.get(site.ai_provider)
+    if provider is None:
+        raise AIError('سرویس هوش مصنوعی انتخاب‌شده پشتیبانی نمی‌شود.')
+    provider(site, 'بگو: سلام', max_tokens=16)
+    label = dict(SiteSetting.AI_PROVIDER_CHOICES).get(site.ai_provider, site.ai_provider)
+    return f'اتصال به {label} برقرار است.'
