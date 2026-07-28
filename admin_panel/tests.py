@@ -441,9 +441,9 @@ class OpenRouterModelListTests(TestCase):
 
 
 class AIProxyTests(TestCase):
-    """OpenRouter answers this project's server with 403 while Anthropic and
-    OpenAI answer it normally, so the proxy is the difference between that
-    provider being usable and not."""
+    """All three providers are reachable directly, so the proxy is blank by
+    default. It matters when OpenRouter's WAF rate-limits a burst of requests
+    from one IP with a 403, or if a provider geo-blocks the range outright."""
 
     def setUp(self):
         self.site = SiteSetting.load()
@@ -473,7 +473,7 @@ class AIProxyTests(TestCase):
             with self.assertRaises(AIError) as ctx:
                 generate_article('تست', site=self.site)
         message = str(ctx.exception)
-        self.assertIn('مسدود', message)
+        self.assertIn('۴۰۳', message)
         self.assertIn('پراکسی', message)
 
     def test_model_list_403_explains_the_ip_block(self):
@@ -483,7 +483,7 @@ class AIProxyTests(TestCase):
         with patch('httpx.get', return_value=Mock(status_code=403)):
             with self.assertRaises(AIError) as ctx:
                 openrouter_models()
-        self.assertIn('مسدود', str(ctx.exception))
+        self.assertIn('۴۰۳', str(ctx.exception))
 
     def test_anthropic_routes_through_proxy_when_set(self):
         from admin_panel.ai import generate_article

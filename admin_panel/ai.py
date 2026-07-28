@@ -40,10 +40,11 @@ class AIError(Exception):
 def _proxy(site) -> str | None:
     """Optional outbound proxy.
 
-    Some providers geo-block datacenter IPs — OpenRouter answers this server
-    with 403 "Access denied by security policy" while Anthropic and OpenAI
-    answer it normally. A proxy is the difference between the provider being
-    usable and not, so it is configurable per install rather than assumed.
+    Blank by default — all three providers are reachable directly from the
+    production host. It exists because OpenRouter's WAF will return 403
+    "Access denied by security policy" for a burst of rapid requests from one
+    IP, and a provider could geo-block a datacenter range outright; when that
+    happens a proxy is the difference between usable and not.
     """
     return (getattr(site, 'ai_proxy_url', '') or '').strip() or None
 
@@ -176,8 +177,9 @@ def _openrouter(site, prompt: str) -> str:
     if response.status_code == 402:
         raise AIError('اعتبار حساب اوپن‌روتر کافی نیست.')
     if response.status_code == 403:
-        raise AIError('اوپن‌روتر دسترسی آی‌پی این سرور را مسدود کرده است. '
-                      'یک پراکسی در تنظیمات وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
+        raise AIError('اوپن‌روتر فعلاً درخواست از این سرور را نمی‌پذیرد (۴۰۳). '
+                      'معمولاً موقتی است؛ چند دقیقه بعد دوباره تلاش کنید. '
+                      'اگر ادامه داشت، پراکسی وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
     if response.status_code == 429:
         raise AIError('محدودیت درخواست اوپن‌روتر. کمی بعد دوباره تلاش کنید.')
     if response.status_code >= 400:
@@ -237,8 +239,9 @@ def openrouter_models(api_key: str = '', proxy: str = '') -> list:
     except httpx.RequestError:
         raise AIError('اتصال به اوپن‌روتر برقرار نشد.')
     if response.status_code == 403:
-        raise AIError('اوپن‌روتر دسترسی آی‌پی این سرور را مسدود کرده است. '
-                      'یک پراکسی در تنظیمات وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
+        raise AIError('اوپن‌روتر فعلاً درخواست از این سرور را نمی‌پذیرد (۴۰۳). '
+                      'معمولاً موقتی است؛ چند دقیقه بعد دوباره تلاش کنید. '
+                      'اگر ادامه داشت، پراکسی وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
     try:
         response.raise_for_status()
         raw = response.json()['data']
