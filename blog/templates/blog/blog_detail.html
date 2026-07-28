@@ -3,6 +3,8 @@
 
 {% block title %}{{ post.title }} | بلاگ شن‌سازه{% endblock %}
 
+{% block seo %}{% include "partials/_seo.html" with seo_title=post.meta_title|default:post.title seo_description=post.meta_description|default:post.excerpt|default:post.content seo_image=post.image seo_type="article" %}{% endblock %}
+
 {% block content %}
 <div class="container py-5">
   <nav aria-label="breadcrumb" class="mb-4">

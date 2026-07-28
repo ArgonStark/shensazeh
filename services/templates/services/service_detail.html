@@ -3,6 +3,8 @@
 
 {% block title %}{{ service.title }} | شن‌سازه{% endblock %}
 
+{% block seo %}{% include "partials/_seo.html" with seo_title=service.meta_title|default:service.title seo_description=service.meta_description|default:service.description seo_image=service.image seo_type="article" %}{% endblock %}
+
 {% block content %}
 <div class="container py-5">
   <nav aria-label="breadcrumb" class="mb-4">

@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Nothing behind these is useful to a crawler, and the panel is staff-only.
+Disallow: /panel/
+Disallow: /admin/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /inventory/
+Disallow: /dashboard/
+Disallow: /telegram/
+Disallow: /api/
+
+Sitemap: {{ request.scheme }}://{{ request.get_host }}/sitemap.xml

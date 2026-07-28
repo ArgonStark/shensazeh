@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 from django_jalali.db import models as jmodels
 
 
@@ -10,6 +11,11 @@ class Category(models.Model):
     image = models.ImageField('تصویر', upload_to='categories/', blank=True)
     description = models.TextField('توضیحات', blank=True)
     order = models.PositiveIntegerField('ترتیب', default=0)
+    # SEO — blank falls back to the natural title/description at render time
+    meta_title = models.CharField('عنوان سئو', max_length=70, blank=True,
+                                  help_text='خالی بماند تا از عنوان اصلی استفاده شود. حداکثر ۷۰ کاراکتر.')
+    meta_description = models.CharField('توضیحات سئو', max_length=160, blank=True,
+                                        help_text='توضیح کوتاه برای نتایج گوگل. حداکثر ۱۶۰ کاراکتر.')
     is_active = models.BooleanField('فعال', default=True)
     created_at = jmodels.jDateTimeField('تاریخ ایجاد', auto_now_add=True)
 
@@ -17,6 +23,9 @@ class Category(models.Model):
         verbose_name = 'دسته‌بندی'
         verbose_name_plural = 'دسته‌بندی‌ها'
         ordering = ['order', 'name']
+
+    def get_absolute_url(self):
+        return reverse('store:category_detail', args=[self.slug])
 
     def __str__(self):
         if self.parent:
@@ -36,6 +45,11 @@ class Product(models.Model):
     price = models.PositiveBigIntegerField('قیمت فروش (ریال)')
     purchase_price = models.PositiveBigIntegerField('آخرین قیمت خرید (ریال)', default=0)
     barcode = models.CharField('بارکد', max_length=50, blank=True, unique=True, null=True)
+    # SEO — blank falls back to the natural title/description at render time
+    meta_title = models.CharField('عنوان سئو', max_length=70, blank=True,
+                                  help_text='خالی بماند تا از عنوان اصلی استفاده شود. حداکثر ۷۰ کاراکتر.')
+    meta_description = models.CharField('توضیحات سئو', max_length=160, blank=True,
+                                        help_text='توضیح کوتاه برای نتایج گوگل. حداکثر ۱۶۰ کاراکتر.')
     stock = models.PositiveIntegerField('موجودی', default=0)
     reorder_point = models.PositiveIntegerField('نقطه سفارش مجدد', default=5)
     expiry_date = jmodels.jDateField('تاریخ انقضا', null=True, blank=True)
@@ -47,6 +61,9 @@ class Product(models.Model):
         verbose_name = 'محصول'
         verbose_name_plural = 'محصولات'
         ordering = ['-created_at']
+
+    def get_absolute_url(self):
+        return reverse('store:product_detail', args=[self.slug])
 
     def __str__(self):
         return self.name

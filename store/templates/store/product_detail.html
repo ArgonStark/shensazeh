@@ -5,6 +5,8 @@
 
 {% block title %}{{ product.name }} | شن‌سازه{% endblock %}
 
+{% block seo %}{% include "partials/_seo.html" with seo_title=product.meta_title|default:product.name seo_description=product.meta_description|default:product.description seo_image=product.images.first.image seo_type="product" %}{% endblock %}
+
 {% block content %}
 <div class="container py-5">
   <nav aria-label="breadcrumb" class="mb-4">

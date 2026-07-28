@@ -382,8 +382,12 @@ class ProductlessLineRenderTests(TestCase):
         self.assertIn('چسب FYFE', html)
 
     def test_storefront_detail_template_renders(self):
+        # This one extends the public base.html, whose SEO partial reads
+        # `request` — so it must be rendered with one.
         from django.template.loader import render_to_string
-        html = render_to_string('orders/invoice_detail.html', self.ctx)
+        from django.test import RequestFactory
+        request = RequestFactory().get('/orders/invoice/1/')
+        html = render_to_string('orders/invoice_detail.html', self.ctx, request=request)
         self.assertIn('چسب FYFE', html)
 
     def test_product_backed_line_still_shows_product_name(self):

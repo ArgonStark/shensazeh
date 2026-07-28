@@ -1,15 +1,23 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include, register_converter
+from django.views.generic import TemplateView
 
 from store.views import HomeView, ProductSearchAPIView
 from .converters import UnicodeSlugConverter
+from .sitemaps import SITEMAPS
 
 register_converter(UnicodeSlugConverter, 'uslug')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Discovery — how search engines find and crawl published content
+    path('sitemap.xml', sitemap, {'sitemaps': SITEMAPS}, name='django.contrib.sitemaps.views.sitemap'),
+    path('robots.txt', TemplateView.as_view(template_name='robots.txt',
+                                            content_type='text/plain'), name='robots'),
 
     # Home
     path('', HomeView.as_view(), name='home'),

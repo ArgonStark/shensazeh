@@ -93,7 +93,8 @@ class ProductForm(AutoSlugModelForm):
     class Meta:
         model = Product
         fields = ['name', 'slug', 'code', 'category', 'description', 'unit',
-                  'price', 'purchase_price', 'barcode', 'stock', 'reorder_point', 'is_active']
+                  'price', 'purchase_price', 'barcode', 'stock', 'reorder_point', 'is_active',
+                  'meta_title', 'meta_description']
         widgets = {
             'name': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'نام محصول'}),
             'slug': forms.TextInput(attrs={'class': TW['input'], 'placeholder': 'اسلاگ (خودکار)'}),
@@ -107,6 +108,10 @@ class ProductForm(AutoSlugModelForm):
             'stock': forms.NumberInput(attrs={'class': TW['input']}),
             'reorder_point': forms.NumberInput(attrs={'class': TW['input']}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'meta_title': forms.TextInput(attrs={'class': TW['input'],
+                                                 'placeholder': 'خالی = عنوان اصلی'}),
+            'meta_description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2,
+                                                      'placeholder': 'توضیح کوتاه برای نتایج گوگل'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -158,7 +163,8 @@ class ProductForm(AutoSlugModelForm):
 class CategoryForm(AutoSlugModelForm):
     class Meta:
         model = Category
-        fields = ['name', 'slug', 'parent', 'image', 'description', 'order', 'is_active']
+        fields = ['name', 'slug', 'parent', 'image', 'description', 'order', 'is_active',
+                  'meta_title', 'meta_description']
         widgets = {
             'name': forms.TextInput(attrs={'class': TW['input']}),
             'slug': forms.TextInput(attrs={'class': TW['input']}),
@@ -167,6 +173,10 @@ class CategoryForm(AutoSlugModelForm):
             'description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3}),
             'order': forms.NumberInput(attrs={'class': TW['input']}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'meta_title': forms.TextInput(attrs={'class': TW['input'],
+                                                 'placeholder': 'خالی = عنوان اصلی'}),
+            'meta_description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2,
+                                                      'placeholder': 'توضیح کوتاه برای نتایج گوگل'}),
         }
 
 
@@ -215,7 +225,8 @@ class BlogPostForm(AutoSlugModelForm):
 
     class Meta:
         model = BlogPost
-        fields = ['title', 'slug', 'content', 'excerpt', 'image', 'is_published']
+        fields = ['title', 'slug', 'content', 'excerpt', 'image', 'is_published',
+                  'meta_title', 'meta_description']
         widgets = {
             'title': forms.TextInput(attrs={'class': TW['input']}),
             'slug': forms.TextInput(attrs={'class': TW['input']}),
@@ -223,6 +234,10 @@ class BlogPostForm(AutoSlugModelForm):
             'excerpt': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 3}),
             'image': forms.ClearableFileInput(attrs={'class': TW['file']}),
             'is_published': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'meta_title': forms.TextInput(attrs={'class': TW['input'],
+                                                 'placeholder': 'خالی = عنوان اصلی'}),
+            'meta_description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2,
+                                                      'placeholder': 'توضیح کوتاه برای نتایج گوگل'}),
         }
 
 
@@ -242,7 +257,8 @@ class ServiceForm(AutoSlugModelForm):
 
     class Meta:
         model = Service
-        fields = ['title', 'slug', 'description', 'icon', 'image', 'is_active', 'order']
+        fields = ['title', 'slug', 'description', 'icon', 'image', 'is_active', 'order',
+                  'meta_title', 'meta_description']
         widgets = {
             'title': forms.TextInput(attrs={'class': TW['input']}),
             'slug': forms.TextInput(attrs={'class': TW['input']}),
@@ -251,6 +267,10 @@ class ServiceForm(AutoSlugModelForm):
             'image': forms.ClearableFileInput(attrs={'class': TW['file']}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
             'order': forms.NumberInput(attrs={'class': TW['input']}),
+            'meta_title': forms.TextInput(attrs={'class': TW['input'],
+                                                 'placeholder': 'خالی = عنوان اصلی'}),
+            'meta_description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2,
+                                                      'placeholder': 'توضیح کوتاه برای نتایج گوگل'}),
         }
 
 
@@ -259,7 +279,8 @@ class ProjectForm(AutoSlugModelForm):
 
     class Meta:
         model = Project
-        fields = ['title', 'slug', 'description', 'client', 'location', 'is_active']
+        fields = ['title', 'slug', 'description', 'client', 'location', 'is_active',
+                  'meta_title', 'meta_description']
         widgets = {
             'title': forms.TextInput(attrs={'class': TW['input']}),
             'slug': forms.TextInput(attrs={'class': TW['input']}),
@@ -267,6 +288,10 @@ class ProjectForm(AutoSlugModelForm):
             'client': forms.TextInput(attrs={'class': TW['input']}),
             'location': forms.TextInput(attrs={'class': TW['input']}),
             'is_active': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'meta_title': forms.TextInput(attrs={'class': TW['input'],
+                                                 'placeholder': 'خالی = عنوان اصلی'}),
+            'meta_description': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2,
+                                                      'placeholder': 'توضیح کوتاه برای نتایج گوگل'}),
         }
 
 

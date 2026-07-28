@@ -1,4 +1,5 @@
 from django.db import models
+from django.urls import reverse
 from django_jalali.db import models as jmodels
 
 
@@ -13,11 +14,19 @@ class BlogPost(models.Model):
     views_count = models.PositiveIntegerField('تعداد بازدید', default=0)
     created_at = jmodels.jDateTimeField('تاریخ ایجاد', auto_now_add=True)
     updated_at = jmodels.jDateTimeField('آخرین ویرایش', auto_now=True)
+    # SEO — blank falls back to the natural title/description at render time
+    meta_title = models.CharField('عنوان سئو', max_length=70, blank=True,
+                                  help_text='خالی بماند تا از عنوان اصلی استفاده شود. حداکثر ۷۰ کاراکتر.')
+    meta_description = models.CharField('توضیحات سئو', max_length=160, blank=True,
+                                        help_text='توضیح کوتاه برای نتایج گوگل. حداکثر ۱۶۰ کاراکتر.')
 
     class Meta:
         verbose_name = 'مقاله'
         verbose_name_plural = 'مقالات'
         ordering = ['-created_at']
+
+    def get_absolute_url(self):
+        return reverse('blog:blog_detail', args=[self.slug])
 
     def __str__(self):
         return self.title

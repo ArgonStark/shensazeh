@@ -2,6 +2,8 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
+from blog.models import BlogPost
+
 from accounts.models import User
 from admin_panel.forms import (BlogPostForm, CategoryForm, ProductForm,
                                ProjectForm, ServiceForm)
@@ -108,3 +110,93 @@ class AutoSlugFormTests(TestCase):
         form = CategoryForm({'name': 'مصالح ساختمانی', 'slug': 'building materials', 'order': '0'})
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data['slug'], 'building-materials')
+
+
+class SEOTests(TestCase):
+    """Search engines need a unique description, a canonical URL, and a way to
+    discover pages. None of that existed before — only a <title>."""
+
+    def setUp(self):
+        self.cat = Category.objects.create(name='ابزار برقی', slug='power-tools-seo')
+        self.product = Product.objects.create(name='دریل', slug='drill-seo',
+                                              category=self.cat, price=5_000_000)
+        self.post = BlogPost.objects.create(title='راهنمای دریل', slug='drill-guide-seo',
+                                            content='<p>متن</p>', is_published=True)
+
+    def test_default_head_has_full_seo_set(self):
+        r = self.client.get(reverse('home'))
+        html = r.content.decode()
+        for tag in ('name="description"', 'rel="canonical"', 'property="og:title"',
+                    'property="og:image"', 'name="twitter:card"', 'application/ld+json'):
+            self.assertIn(tag, html, tag)
+
+    def test_canonical_drops_the_query_string(self):
+        """A filtered or paginated variant must not compete with its own base page."""
+        r = self.client.get(reverse('store:category_list') + '?sort=price&brand=x')
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn('rel="canonical" href="http://testserver/store/categories/"', html)
+        self.assertNotIn('sort=price', html.split('rel="canonical"')[1][:160])
+
+    def test_meta_title_overrides_fall_back_to_natural_title(self):
+        self.assertEqual(self.post.meta_title, '')
+        self.assertEqual(self.product.meta_description, '')
+
+    def test_get_absolute_url_resolves(self):
+        self.assertEqual(self.post.get_absolute_url(), '/blog/drill-guide-seo/')
+        self.assertEqual(self.product.get_absolute_url(), '/store/product/drill-seo/')
+        self.assertEqual(self.cat.get_absolute_url(), '/store/category/power-tools-seo/')
+
+    def test_sitemap_lists_published_content(self):
+        r = self.client.get('/sitemap.xml')
+        self.assertEqual(r.status_code, 200)
+        xml = r.content.decode()
+        self.assertIn('/blog/drill-guide-seo/', xml)
+        self.assertIn('/store/product/drill-seo/', xml)
+        self.assertIn('/store/category/power-tools-seo/', xml)
+
+    def test_sitemap_excludes_unpublished_and_inactive(self):
+        BlogPost.objects.create(title='پیش‌نویس', slug='draft-seo',
+                                content='x', is_published=False)
+        Product.objects.create(name='بایگانی', slug='archived-seo',
+                               category=self.cat, price=1, is_active=False)
+        xml = self.client.get('/sitemap.xml').content.decode()
+        self.assertNotIn('draft-seo', xml)
+        self.assertNotIn('archived-seo', xml)
+
+    def test_robots_txt_blocks_private_areas_and_points_at_sitemap(self):
+        r = self.client.get('/robots.txt')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'text/plain')
+        body = r.content.decode()
+        self.assertIn('Disallow: /panel/', body)
+        self.assertIn('Disallow: /admin/', body)
+        self.assertIn('Sitemap: http://testserver/sitemap.xml', body)
+
+    def test_page_overrides_reach_the_head(self):
+        """Regression: the partial's input names must match what pages pass in.
+        A rename once broke this silently — defaults still rendered, so the tags
+        looked fine while every page shared the site-wide description."""
+        self.post.meta_title = 'عنوان سئوی سفارشی'
+        self.post.meta_description = 'توضیح سئوی سفارشی برای گوگل'
+        self.post.save()
+        html = self.client.get(self.post.get_absolute_url()).content.decode()
+        self.assertIn('content="عنوان سئوی سفارشی"', html)
+        self.assertIn('توضیح سئوی سفارشی برای گوگل', html)
+        self.assertIn('property="og:type" content="article"', html)
+
+    def test_page_without_overrides_falls_back_to_its_own_title(self):
+        html = self.client.get(self.post.get_absolute_url()).content.decode()
+        self.assertIn('content="راهنمای دریل"', html)
+        self.assertNotIn('content="شن‌سازه - ابزار و مصالح ساختمانی"', html)
+
+    def test_product_page_declares_product_og_type(self):
+        html = self.client.get(self.product.get_absolute_url()).content.decode()
+        self.assertIn('property="og:type" content="product"', html)
+        self.assertIn('content="دریل"', html)
+
+    def test_canonical_is_per_page_not_shared(self):
+        post_html = self.client.get(self.post.get_absolute_url()).content.decode()
+        prod_html = self.client.get(self.product.get_absolute_url()).content.decode()
+        self.assertIn('href="http://testserver/blog/drill-guide-seo/"', post_html)
+        self.assertIn('href="http://testserver/store/product/drill-seo/"', prod_html)
