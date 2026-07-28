@@ -64,6 +64,9 @@ class SiteSetting(models.Model):
     # Namespaced slug, e.g. "anthropic/claude-opus-5" — longer than a bare model name.
     openrouter_model = models.CharField('مدل اوپن‌روتر', max_length=120, blank=True,
                                         default='anthropic/claude-opus-5')
+    ai_proxy_url = models.CharField(
+        'پراکسی برای سرویس‌های هوش مصنوعی', max_length=200, blank=True,
+        help_text='اختیاری. مثال: http://127.0.0.1:8118 — اگر سرویس، آی‌پی سرور را مسدود کرده باشد.')
     openrouter_web_search = models.BooleanField(
         'جستجوی وب هنگام تولید محتوا', default=False,
         help_text='مدل در صورت نیاز وب را جستجو می‌کند. حدود ۰.۰۰۵ دلار برای هر جستجو.')

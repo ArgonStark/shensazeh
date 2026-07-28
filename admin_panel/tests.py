@@ -438,3 +438,61 @@ class OpenRouterModelListTests(TestCase):
             r = self.client.get(url)
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.json()['models']), 2)
+
+
+class AIProxyTests(TestCase):
+    """OpenRouter answers this project's server with 403 while Anthropic and
+    OpenAI answer it normally, so the proxy is the difference between that
+    provider being usable and not."""
+
+    def setUp(self):
+        self.site = SiteSetting.load()
+        self.site.openrouter_api_key = 'sk-or-test'
+        self.site.ai_provider = 'openrouter'
+
+    def _ok(self):
+        return Mock(status_code=200,
+                    json=lambda: {'choices': [{'message': {'content': 'متن'}}]})
+
+    def test_no_proxy_configured_sends_none(self):
+        from admin_panel.ai import generate_article
+        with patch('httpx.post', return_value=self._ok()) as post:
+            generate_article('تست', site=self.site)
+        self.assertIsNone(post.call_args.kwargs['proxy'])
+
+    def test_configured_proxy_is_used(self):
+        from admin_panel.ai import generate_article
+        self.site.ai_proxy_url = '  http://127.0.0.1:8118  '
+        with patch('httpx.post', return_value=self._ok()) as post:
+            generate_article('تست', site=self.site)
+        self.assertEqual(post.call_args.kwargs['proxy'], 'http://127.0.0.1:8118')
+
+    def test_403_explains_the_ip_block_rather_than_the_status_code(self):
+        from admin_panel.ai import AIError, generate_article
+        with patch('httpx.post', return_value=Mock(status_code=403, json=lambda: {})):
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        message = str(ctx.exception)
+        self.assertIn('مسدود', message)
+        self.assertIn('پراکسی', message)
+
+    def test_model_list_403_explains_the_ip_block(self):
+        from admin_panel.ai import AIError, openrouter_models
+        from django.core.cache import cache
+        cache.clear()
+        with patch('httpx.get', return_value=Mock(status_code=403)):
+            with self.assertRaises(AIError) as ctx:
+                openrouter_models()
+        self.assertIn('مسدود', str(ctx.exception))
+
+    def test_anthropic_routes_through_proxy_when_set(self):
+        from admin_panel.ai import generate_article
+        self.site.ai_provider = 'anthropic'
+        self.site.anthropic_api_key = 'sk-ant-test'
+        self.site.ai_proxy_url = 'http://127.0.0.1:8118'
+        block = Mock(type='text', text='مقاله')
+        reply = Mock(stop_reason='end_turn', content=[block])
+        with patch('anthropic.Anthropic') as client, patch('anthropic.DefaultHttpxClient') as http:
+            client.return_value.messages.create.return_value = reply
+            generate_article('تست', site=self.site)
+        http.assert_called_once_with(proxy='http://127.0.0.1:8118')

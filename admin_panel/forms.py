@@ -308,6 +308,7 @@ class SiteSettingForm(forms.ModelForm):
             'ai_provider', 'anthropic_api_key', 'anthropic_model',
             'openai_api_key', 'openai_model',
             'openrouter_api_key', 'openrouter_model', 'openrouter_web_search',
+            'ai_proxy_url',
         ]
         widgets = {
             'site_name': forms.TextInput(attrs={'class': TW['input']}),
@@ -345,6 +346,8 @@ class SiteSettingForm(forms.ModelForm):
                                                              'placeholder': 'sk-or-v1-...'},
                                                       render_value=True),
             'openrouter_web_search': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
+            'ai_proxy_url': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr',
+                                                   'placeholder': 'http://127.0.0.1:8118'}),
         }
 
 

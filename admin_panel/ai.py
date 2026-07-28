@@ -37,6 +37,17 @@ class AIError(Exception):
     """Raised with a Persian, user-facing message — surfaced straight to the panel."""
 
 
+def _proxy(site) -> str | None:
+    """Optional outbound proxy.
+
+    Some providers geo-block datacenter IPs — OpenRouter answers this server
+    with 403 "Access denied by security policy" while Anthropic and OpenAI
+    answer it normally. A proxy is the difference between the provider being
+    usable and not, so it is configurable per install rather than assumed.
+    """
+    return (getattr(site, 'ai_proxy_url', '') or '').strip() or None
+
+
 def _prompt(topic: str, style: str) -> str:
     style_text = STYLE_LABELS.get(style, STYLE_LABELS['formal'])
     return (
@@ -52,7 +63,12 @@ def _anthropic(site, prompt: str) -> str:
     if not key:
         raise AIError('کلید API کلاد تنظیم نشده است. از بخش تنظیمات آن را وارد کنید.')
 
-    client = anthropic.Anthropic(api_key=key)
+    proxy = _proxy(site)
+    if proxy:
+        from anthropic import DefaultHttpxClient
+        client = anthropic.Anthropic(api_key=key, http_client=DefaultHttpxClient(proxy=proxy))
+    else:
+        client = anthropic.Anthropic(api_key=key)
     try:
         message = client.messages.create(
             model=site.anthropic_model or 'claude-opus-5',
@@ -95,6 +111,7 @@ def _openai(site, prompt: str) -> str:
                 'messages': [{'role': 'user', 'content': prompt}],
             },
             timeout=TIMEOUT,
+            proxy=_proxy(site),
         )
     except httpx.RequestError:
         raise AIError('اتصال به سرویس اوپن‌ای‌آی برقرار نشد.')
@@ -149,6 +166,7 @@ def _openrouter(site, prompt: str) -> str:
             },
             json=body,
             timeout=TIMEOUT,
+            proxy=_proxy(site),
         )
     except httpx.RequestError:
         raise AIError('اتصال به سرویس اوپن‌روتر برقرار نشد.')
@@ -157,6 +175,9 @@ def _openrouter(site, prompt: str) -> str:
         raise AIError('کلید API اوپن‌روتر معتبر نیست.')
     if response.status_code == 402:
         raise AIError('اعتبار حساب اوپن‌روتر کافی نیست.')
+    if response.status_code == 403:
+        raise AIError('اوپن‌روتر دسترسی آی‌پی این سرور را مسدود کرده است. '
+                      'یک پراکسی در تنظیمات وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
     if response.status_code == 429:
         raise AIError('محدودیت درخواست اوپن‌روتر. کمی بعد دوباره تلاش کنید.')
     if response.status_code >= 400:
@@ -194,7 +215,7 @@ def generate_article(topic: str, style: str = 'formal', site=None) -> str:
     return provider(site, _prompt(topic, style))
 
 
-def openrouter_models(api_key: str = '') -> list:
+def openrouter_models(api_key: str = '', proxy: str = '') -> list:
     """The live model catalogue, trimmed to what the picker needs.
 
     Fetched rather than hardcoded: OpenRouter carries ~370 models and the list
@@ -211,7 +232,14 @@ def openrouter_models(api_key: str = '') -> list:
 
     headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
     try:
-        response = httpx.get(OPENROUTER_MODELS_URL, headers=headers, timeout=30.0)
+        response = httpx.get(OPENROUTER_MODELS_URL, headers=headers, timeout=30.0,
+                             proxy=(proxy or '').strip() or None)
+    except httpx.RequestError:
+        raise AIError('اتصال به اوپن‌روتر برقرار نشد.')
+    if response.status_code == 403:
+        raise AIError('اوپن‌روتر دسترسی آی‌پی این سرور را مسدود کرده است. '
+                      'یک پراکسی در تنظیمات وارد کنید یا از کلاد/اوپن‌ای‌آی مستقیم استفاده کنید.')
+    try:
         response.raise_for_status()
         raw = response.json()['data']
     except (httpx.HTTPError, ValueError, KeyError, TypeError):

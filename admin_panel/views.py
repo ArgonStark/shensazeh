@@ -2171,7 +2171,8 @@ class AdminOpenRouterModelsView(PanelPermissionMixin, View):
         from .ai import AIError, openrouter_models
         from .models import SiteSetting
         try:
-            models = openrouter_models(SiteSetting.load().openrouter_api_key)
+            site = SiteSetting.load()
+            models = openrouter_models(site.openrouter_api_key, site.ai_proxy_url)
         except AIError as exc:
             return JsonResponse({'error': str(exc)}, status=502)
         return JsonResponse({'models': models})
