@@ -344,3 +344,53 @@ class InvoicePanelViewTests(TestCase):
         self.assertContains(response, 'S-00001')
         response = self.client.get(reverse('admin_panel:invoice_list'), {'type': 'purchase'})
         self.assertNotContains(response, 'S-00001')
+
+
+class ProductlessLineRenderTests(TestCase):
+    """InvoiceItem.product is nullable by design ("null → free-text service
+    line"). Templates must not reach through it.
+
+    Regression: the receipt used `{{ item.description|default:item.product.name }}`.
+    Django resolves filter *arguments* eagerly and, unlike a bare `{{ }}`,
+    does not swallow VariableDoesNotExist — so the page 500'd on any
+    product-less line even when `description` was set and the fallback was
+    never needed.
+    """
+
+    def setUp(self):
+        from admin_panel.models import SiteSetting
+        self.party = Party.objects.create(name='بدرخانی')
+        self.invoice = make_invoice(self.party, items=[
+            {'description': 'چسب FYFE', 'quantity': 2, 'unit_price': 5_000_000},
+        ])
+        self.site = SiteSetting.load()
+        self.ctx = {'invoice': self.invoice, 'site': self.site}
+
+    def test_item_has_no_product(self):
+        item = self.invoice.items.get()
+        self.assertIsNone(item.product)
+        self.assertEqual(item.label, 'چسب FYFE')
+
+    def test_receipt_pdf_template_renders(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('orders/invoice_pdf.html', self.ctx)
+        self.assertIn('چسب FYFE', html)
+
+    def test_official_pdf_template_renders(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('orders/invoice_pdf_official.html', self.ctx)
+        self.assertIn('چسب FYFE', html)
+
+    def test_storefront_detail_template_renders(self):
+        from django.template.loader import render_to_string
+        html = render_to_string('orders/invoice_detail.html', self.ctx)
+        self.assertIn('چسب FYFE', html)
+
+    def test_product_backed_line_still_shows_product_name(self):
+        """With no description, the product name must still come through."""
+        from django.template.loader import render_to_string
+        product = make_product('سیمان تیپ ۲', 1_000_000, 50)
+        InvoiceItem.objects.create(invoice=self.invoice, product=product,
+                                   quantity=1, unit_price=1_000_000)
+        html = render_to_string('orders/invoice_pdf.html', self.ctx)
+        self.assertIn('سیمان تیپ ۲', html)

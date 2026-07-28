@@ -106,7 +106,7 @@
             {% for item in invoice.items.all %}
             <tr>
               <td class="text-center">{{ forloop.counter }}</td>
-              <td>{{ item.description|default:item.product.name }}</td>
+              <td>{{ item.label }}</td>
               <td class="text-center">{{ item.quantity }}</td>
               <td class="text-center">{{ item.unit|default:"عدد" }}</td>
               <td>{{ item.unit_price|toman }}</td>

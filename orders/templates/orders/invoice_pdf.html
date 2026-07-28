@@ -183,7 +183,7 @@
         {% for item in invoice.items.all %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td style="text-align:right;">{{ item.description|default:item.product.name }}</td>
+          <td style="text-align:right;">{{ item.label }}</td>
           <td>{{ item.quantity }}</td>
           <td>{{ item.unit|default:"عدد" }}</td>
           <td>{{ item.unit_price|toman }}</td>
