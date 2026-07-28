@@ -45,6 +45,21 @@ class SiteSetting(models.Model):
     registration_number = models.CharField('شماره ثبت', max_length=20, blank=True)
     postal_code = models.CharField('کد پستی', max_length=10, blank=True)
 
+    # AI assistant — keys live here so they can be rotated from the panel
+    # without a redeploy. settings.ANTHROPIC_API_KEY stays as the fallback.
+    AI_PROVIDER_CHOICES = [
+        ('anthropic', 'Claude (Anthropic)'),
+        ('openai', 'OpenAI'),
+    ]
+    ai_provider = models.CharField('سرویس هوش مصنوعی', max_length=20,
+                                   choices=AI_PROVIDER_CHOICES, default='anthropic')
+    anthropic_api_key = models.CharField('کلید API کلاد', max_length=200, blank=True)
+    openai_api_key = models.CharField('کلید API اوپن‌ای‌آی', max_length=200, blank=True)
+    anthropic_model = models.CharField('مدل کلاد', max_length=60, blank=True,
+                                       default='claude-opus-5')
+    openai_model = models.CharField('مدل اوپن‌ای‌آی', max_length=60, blank=True,
+                                    default='gpt-4o')
+
     updated_at = models.DateTimeField('آخرین بروزرسانی', auto_now=True)
 
     class Meta:

@@ -1,8 +1,7 @@
 import json
+import logging
 import uuid
 
-import anthropic
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.db import transaction
@@ -40,6 +39,9 @@ from .forms import (
     ChequeForm, ChequeBookForm, ChequePrintLayoutForm,
     ServiceForm, ProjectForm, StaffForm,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
@@ -2149,31 +2151,16 @@ class AdminAIAssistView(PanelPermissionMixin, View):
         if not prompt:
             return JsonResponse({'error': 'متن درخواست الزامی است.'}, status=400)
 
-        style_map = {
-            'formal': 'رسمی و حرفه‌ای',
-            'informal': 'غیررسمی و صمیمی',
-            'technical': 'فنی و تخصصی',
-        }
-        style_text = style_map.get(style, 'رسمی')
-
+        from .ai import AIError, generate_article
         try:
-            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-            message = client.messages.create(
-                model='claude-haiku-4-5-20251001',
-                max_tokens=2048,
-                messages=[{
-                    'role': 'user',
-                    'content': (
-                        f'لطفاً یک مقاله وبلاگ به فارسی با لحن {style_text} بنویسید.\n'
-                        f'مقاله باید شامل عنوان، خلاصه کوتاه و محتوای کامل باشد.\n'
-                        f'موضوع مقاله در حوزه ابزارآلات و مصالح ساختمانی است.\n\n'
-                        f'موضوع: {prompt}'
-                    ),
-                }],
-            )
-            return JsonResponse({'content': message.content[0].text})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'content': generate_article(prompt, style)})
+        except AIError as exc:
+            # AIError messages are written for the panel user; anything else is
+            # an internal fault and must not leak its detail to the browser.
+            return JsonResponse({'error': str(exc)}, status=502)
+        except Exception:
+            logger.exception('AI assist failed')
+            return JsonResponse({'error': 'خطای غیرمنتظره در تولید محتوا.'}, status=500)
 
 
 # ─── Rich-text editor image upload ───────────────────────────

@@ -280,6 +280,8 @@ class SiteSettingForm(forms.ModelForm):
             'vat_rate', 'legal_name', 'economic_code', 'national_id',
             'registration_number', 'postal_code',
             'invoice_sms_enabled', 'invoice_sms_template',
+            'ai_provider', 'anthropic_api_key', 'anthropic_model',
+            'openai_api_key', 'openai_model',
         ]
         widgets = {
             'site_name': forms.TextInput(attrs={'class': TW['input']}),
@@ -303,6 +305,16 @@ class SiteSettingForm(forms.ModelForm):
             'postal_code': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
             'invoice_sms_enabled': forms.CheckboxInput(attrs={'class': TW['checkbox']}),
             'invoice_sms_template': forms.Textarea(attrs={'class': TW['textarea'], 'rows': 2}),
+            'ai_provider': forms.Select(attrs={'class': TW['select']}),
+            # type="password" so a stored key isn't shoulder-surfable in the panel.
+            'anthropic_api_key': forms.PasswordInput(attrs={'class': TW['input'], 'dir': 'ltr',
+                                                            'placeholder': 'sk-ant-...'},
+                                                     render_value=True),
+            'openai_api_key': forms.PasswordInput(attrs={'class': TW['input'], 'dir': 'ltr',
+                                                         'placeholder': 'sk-...'},
+                                                  render_value=True),
+            'anthropic_model': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
+            'openai_model': forms.TextInput(attrs={'class': TW['input'], 'dir': 'ltr'}),
         }
 
 

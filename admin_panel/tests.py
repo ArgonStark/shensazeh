@@ -1,8 +1,12 @@
+from unittest.mock import Mock, patch
+
 from django.contrib.auth.models import Permission
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from accounts.models import StaffProfile, User
+from admin_panel.models import SiteSetting
+from admin_panel.permissions import apply_role_defaults
 from finance.models import AuditLog
 from orders.models import Invoice, Order
 from store.models import Category, Product
@@ -200,3 +204,108 @@ class InvoiceDetailAccessTests(TestCase):
     def test_staff_without_permission_gets_404(self):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get(self.url).status_code, 404)
+
+
+class AIProviderTests(TestCase):
+    """The assistant dispatches to whichever provider the panel is set to, and
+    every failure path returns a Persian message rather than a raw exception."""
+
+    def setUp(self):
+        self.site = SiteSetting.load()
+
+    def test_missing_anthropic_key_is_reported(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'anthropic'
+        self.site.anthropic_api_key = ''
+        with override_settings(ANTHROPIC_API_KEY=''):
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        self.assertIn('کلید API کلاد', str(ctx.exception))
+
+    def test_missing_openai_key_is_reported(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'openai'
+        self.site.openai_api_key = ''
+        with self.assertRaises(AIError) as ctx:
+            generate_article('تست', site=self.site)
+        self.assertIn('اوپن‌ای‌آی', str(ctx.exception))
+
+    def test_unknown_provider_is_reported(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'nonesuch'
+        with self.assertRaises(AIError):
+            generate_article('تست', site=self.site)
+
+    def test_openai_reads_choice_text(self):
+        from admin_panel.ai import generate_article
+        self.site.ai_provider = 'openai'
+        self.site.openai_api_key = 'sk-test'
+        payload = {'choices': [{'message': {'content': ' متن تولید شده '}}]}
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: payload)):
+            self.assertEqual(generate_article('تست', site=self.site), 'متن تولید شده')
+
+    def test_openai_bad_key_maps_to_message(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'openai'
+        self.site.openai_api_key = 'sk-bad'
+        with patch('httpx.post', return_value=Mock(status_code=401, json=lambda: {})):
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        self.assertIn('معتبر نیست', str(ctx.exception))
+
+    def test_openai_unreadable_body_maps_to_message(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'openai'
+        self.site.openai_api_key = 'sk-test'
+        with patch('httpx.post', return_value=Mock(status_code=200, json=lambda: {'unexpected': 1})):
+            with self.assertRaises(AIError):
+                generate_article('تست', site=self.site)
+
+    def test_anthropic_refusal_maps_to_message(self):
+        from admin_panel.ai import AIError, generate_article
+        self.site.ai_provider = 'anthropic'
+        self.site.anthropic_api_key = 'sk-ant-test'
+        reply = Mock(stop_reason='refusal', content=[])
+        with patch('anthropic.Anthropic') as client:
+            client.return_value.messages.create.return_value = reply
+            with self.assertRaises(AIError) as ctx:
+                generate_article('تست', site=self.site)
+        self.assertIn('رد شد', str(ctx.exception))
+
+    def test_anthropic_returns_text(self):
+        from admin_panel.ai import generate_article
+        self.site.ai_provider = 'anthropic'
+        self.site.anthropic_api_key = 'sk-ant-test'
+        block = Mock(type='text', text='مقاله')
+        reply = Mock(stop_reason='end_turn', content=[block])
+        with patch('anthropic.Anthropic') as client:
+            client.return_value.messages.create.return_value = reply
+            self.assertEqual(generate_article('تست', site=self.site), 'مقاله')
+
+
+class AIAssistViewTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(username='aiuser', mobile='09120005555',
+                                              password='x', is_staff=True)
+        apply_role_defaults(self.staff, 'content')
+        self.client.force_login(self.staff)
+        self.url = reverse('admin_panel:ai_assist')
+
+    def test_empty_prompt_rejected(self):
+        r = self.client.post(self.url, {'prompt': '  '})
+        self.assertEqual(r.status_code, 400)
+
+    def test_provider_error_surfaces_persian_message(self):
+        with patch('admin_panel.ai.generate_article',
+                   side_effect=__import__('admin_panel.ai', fromlist=['AIError']).AIError('کلید نیست')):
+            r = self.client.post(self.url, {'prompt': 'دریل'})
+        self.assertEqual(r.status_code, 502)
+        self.assertEqual(r.json()['error'], 'کلید نیست')
+
+    def test_unexpected_error_does_not_leak_detail(self):
+        """An internal fault must not put its exception text in the browser."""
+        with patch('admin_panel.ai.generate_article',
+                   side_effect=RuntimeError('sk-ant-secret-leaked')):
+            r = self.client.post(self.url, {'prompt': 'دریل'})
+        self.assertEqual(r.status_code, 500)
+        self.assertNotIn('secret', r.json()['error'])
